@@ -1,35 +1,16 @@
-import numpy as np
+import json
 import torch
+import torch.nn.functional as F
 from torch.utils import data
-import nltk
-from nltk.corpus import semcor
-import re
-
 
 NO_SENSE = 'no_sense'
-
-RE_NON_CHARS = re.compile('[^a-zA-Z]')
-
-
-# Questions
-# 1) trim panctuation?
-# 2) What to do about no_sense?
-# 3) Single sample per query word is appropriate?
-
-
-def trim(words):
-    ret = []
-    for w in words:
-        w = RE_NON_CHARS.sub('', w).strip()
-        if len(w) > 0:
-            ret.append(w)
-    return ret
 
 
 class Vocab:
     def __init__(self):
         self.index = {}
-        self.running_id = 0
+        self.inverted_index = {}
+        self.running_id = 1
 
     def gen_id(self, string_key):
         idx = self.index.get(string_key, None)
@@ -39,143 +20,198 @@ class Vocab:
             self.running_id += 1
         return idx
 
+    def to_ids(self, token_list):
+        ret = []
+        for t in token_list:
+            ret.append(self.gen_id(t))
+        return ret
+
+    def __invert_index(self):
+        self.inverted_index = {v: k for k, v in self.index.items()}
+        self.inverted_index[0] = ''
+
+    def decode(self, ids):
+        if len(self.inverted_index) != len(self.index):
+            self.__invert_index()
+
+        ret = []
+        for id in ids:
+            ret.append(self.inverted_index[id])
+        return ret
+
     def size(self):
         return self.running_id
 
 
-def load_raw_data(S=100):
+def load_raw_data(sentences_file='sentences.jsonl', senses_file='senses.jsonl', S=100):
     raw_dataset = {
         'int_sentences': [],
         'str_sentences': [],
         'int_labels': [],
-        'str_labels': [],
-        'queries': [],
-        'labels': []
+        'str_labels': []
     }
 
     y_vocab = Vocab()
     tokens_vocab = Vocab()
 
-    def parse(tagged_sentence):
-        int_sentence = []
-        str_sentence = []
-        int_labels = []
-        str_labels = []
-
-        def append(chunk, sense):
-            sense_id = y_vocab.gen_id(sense)
-            for s in chunk:
-                int_sentence.append(tokens_vocab.gen_id(s))
-                str_sentence.append(s)
-                int_labels.append(sense_id)
-                str_labels.append(sense)
-
-        for chunk in tagged_sentence:
-            if type(chunk) == list:
-                append(trim(chunk), NO_SENSE)
-            elif type(chunk) == nltk.tree.Tree:
-                labeled_words = trim(chunk.leaves())
-
-                if len(labeled_words) >= 1:
-                    if type(chunk.label()) == str:
-                        # nltk 3.2.5
-                        str_lbl = chunk.label()
-                    elif type(chunk.label()) == nltk.corpus.reader.wordnet.Lemma:
-                        # nltk 3.4.5
-                        str_lbl = chunk.label().synset().name() + '_' + chunk.label().name()
-                    else:
-                        raise ValueError(f'Illegal chunk label {chunk.label()}')
-                    append(labeled_words, str_lbl)
-
-        qs = []
-        lbls = []
-        for q_sentence_idx, lbl in enumerate(int_labels):
-            if lbl is not None:
-                qs.append(int_sentence[q_sentence_idx])
-                lbls.append(lbl)
-
-        if len(lbls) > 0:
+    with open(sentences_file, 'r') as data:
+        for i, line in enumerate(data):
+            if i >= S:
+                break
+            tokenized_sentence = json.loads(line)
+            raw_dataset['str_sentences'].append(tokenized_sentence)
+            int_sentence = tokens_vocab.to_ids(tokenized_sentence)
             raw_dataset['int_sentences'].append(int_sentence)
-            raw_dataset['str_sentences'].append(str_sentence)
+
+    with open(senses_file, 'r') as data:
+        for i, line in enumerate(data):
+            if i >= S:
+                break
+            labels = json.loads(line)
+            raw_dataset['str_labels'].append(labels)
+            int_labels = y_vocab.to_ids(labels)
             raw_dataset['int_labels'].append(int_labels)
-            raw_dataset['str_labels'].append(str_labels)
 
-            raw_dataset['queries'].append(qs)
-            raw_dataset['labels'].append(lbls)
-
-    nltk.download('semcor')
-
-    for i, ts in enumerate(semcor.tagged_sents(tag='sem')[:S]):
-        parse(ts)
-
-    sample_idx_tuples = []
-    for i, s in enumerate(raw_dataset['int_sentences']):
-        qs = raw_dataset['queries'][i]
-        lbls = raw_dataset['labels'][i]
-        for qi, q in enumerate(qs):
-            sample_idx_tuples.append((i, q, lbls[qi]))
-
-    raw_dataset['idx_tuples'] = sample_idx_tuples
     return raw_dataset, tokens_vocab, y_vocab
 
 
+# --> Can sort samples to create more compact batches (and then shuffle only inter-batch)
+# Check lazy loading
 class WSDDataset(data.Dataset):
 
-    def __init__(self, raw_dataset, V, sample_idxs=None, N=200):
+    def __init__(self, raw_dataset, tokens_vocab, y_vocab):
         self.raw_dataset = raw_dataset
 
-        if sample_idxs is None:
-            sample_idxs = raw_dataset['idx_tuples'].copy()
+        self.tokens_vocab = tokens_vocab
+        self.y_vocab = y_vocab
 
-        self.sample_idxs = sample_idxs
-        self.V = V
-        self.N = N
+        # N holds max sentence length
+        self.N = max(map(len, raw_dataset['int_sentences']))
+
+        int_labels = raw_dataset['int_labels']
+        idx_tuples = []
+        for s_idx, s in enumerate(raw_dataset['int_sentences']):
+            for q in range(len(s)):
+                idx_tuples.append((s_idx, q, int_labels[s_idx][q]))
+
+        self.idx_tuples = idx_tuples
 
     def __len__(self):
-        return len(self.sample_idxs)
-
-    def sentence_to_mat(self, int_sentence, force_rows=None):
-        S = len(int_sentence)
-        if force_rows and S < force_rows:
-            S = force_rows
-        M = np.zeros([S, self.V])
-        M[range(len(int_sentence)), int_sentence] = 1
-        return torch.tensor(M, dtype=torch.float32)
-
-    def gen_sample(self, sentence, q, lbl):
-        M_s = self.sentence_to_mat(sentence, force_rows=self.N)
-        v_q = self.sentence_to_mat([q])
-        return M_s, v_q, torch.tensor(lbl)
+        return len(self.idx_tuples)
 
     def __getitem__(self, index):
-        sent_idx, q, lbl = self.sample_idxs[index]
+        sent_idx, q, lbl = self.idx_tuples[index]
         sentence = self.raw_dataset['int_sentences'][sent_idx]
 
-        M_s, v_q, y_true = self.gen_sample(sentence, q, lbl)
+        pad = self.N - len(sentence)
+        sentence_tensor = torch.tensor(sentence)
+        sentence_tensor = F.pad(sentence_tensor, (0, pad))
 
-        return M_s, v_q, y_true
+        return sentence_tensor, torch.tensor(q), torch.tensor(lbl)
 
-    def gen_batches_idxs(self, batch_size=32):
-        idx_tuples = self.raw_dataset['idx_tuples'].copy()
-        np.random.shuffle(idx_tuples)
-        batches = np.array_split(idx_tuples, len(idx_tuples) / batch_size)
-        return batches
+    def show_sample(self, index):
+        sent_idx, q, lbl = self.idx_tuples[index]
+        sentence = self.raw_dataset['int_sentences'][sent_idx]
 
-    def iterate_batches(self, batches, N=100):
-        def iter_samples(sample_idx_tuples):
-            for sent_idx, q, lbl in sample_idx_tuples:
-                sentence = self.raw_dataset['int_sentences'][sent_idx]
-                yield self.gen_sample(sentence, q, lbl)
+        str_sentence = [self.tokens_vocab.index[t] for t in sentence]
+        str_lbl = self.y_vocab.index[lbl]
+        return str_sentence, q, lbl
 
-        for b in batches:
-            M_ss_l = []
-            M_qs_l = []
-            y_trues = []
-            for M_s, M_q, lbl in iter_samples(b):
-                M_ss_l.append(M_s)
-                M_qs_l.append(M_q)
-                y_trues.append(lbl)
-            M_ss = torch.stack(M_ss_l)
-            M_qs = torch.stack(M_qs_l)
-            y_true = torch.stack(y_trues)
-            yield M_ss, M_qs, y_true
+    def __repr__(self):
+        S = len(self.raw_dataset['int_labels'])
+        return f'Samples: {len(self.idx_tuples)}\nSentences: {S} (N={self.N})\n' \
+               f'Vocab:\n\tTokens:{self.tokens_vocab.size()}\n\tSenses:{self.y_vocab.size()}'
+
+
+
+from torch import nn
+
+
+class Attention(nn.Module):
+    """ Applies attention mechanism on the `context` using the `query`.
+
+    **Thank you** to IBM for their initial implementation of :class:`Attention`. Here is
+    their `License
+    <https://github.com/IBM/pytorch-seq2seq/blob/master/LICENSE>`__.
+
+    Args:
+        dimensions (int): Dimensionality of the query and context.
+        attention_type (str, optional): How to compute the attention score:
+
+            * dot: :math:`score(H_j,q) = H_j^T q`
+            * general: :math:`score(H_j, q) = H_j^T W_a q`
+
+    Example:
+
+         >>> attention = Attention(256)
+         >>> query = torch.randn(5, 1, 256)
+         >>> context = torch.randn(5, 5, 256)
+         >>> output, weights = attention(query, context)
+         >>> output.size()
+         torch.Size([5, 1, 256])
+         >>> weights.size()
+         torch.Size([5, 1, 5])
+    """
+
+    def __init__(self, dimensions, attention_type='general'):
+        super(Attention, self).__init__()
+
+        if attention_type not in ['dot', 'general']:
+            raise ValueError('Invalid attention type selected.')
+
+        self.attention_type = attention_type
+        if self.attention_type == 'general':
+            self.linear_in = nn.Linear(dimensions, dimensions, bias=False)
+
+        self.linear_out = nn.Linear(dimensions * 2, dimensions, bias=False)
+        self.softmax = nn.Softmax(dim=-1)
+        self.tanh = nn.Tanh()
+
+    def forward(self, Q, X):
+        """
+        Args:
+            Q (:class:`torch.FloatTensor` [batch size, output length, dimensions]): Sequence of
+                queries to query the context.
+            X (:class:`torch.FloatTensor` [batch size, query length, dimensions]): Data
+                overwhich to apply the attention mechanism.
+
+        Returns:
+            :class:`tuple` with `output` and `weights`:
+            * **output** (:class:`torch.LongTensor` [batch size, output length, dimensions]):
+              Tensor containing the attended features.
+            * **weights** (:class:`torch.FloatTensor` [batch size, output length, query length]):
+              Tensor containing attention weights.
+        """
+        B, output_len, D = Q.size()
+        N = X.size(1)
+
+        if self.attention_type == "general":
+            Q = Q.reshape(B * output_len, D)
+            Q = self.linear_in(Q)
+            Q = Q.reshape(B, output_len, D)
+
+        # TODO: Include mask on PADDING_INDEX?
+
+        # (batch_size, output_len, dimensions) * (batch_size, query_len, dimensions) ->
+        # (batch_size, output_len, query_len)
+        attention_scores = torch.bmm(Q, X.transpose(1, 2).contiguous())
+
+        # Compute weights across every context sequence
+        attention_scores = attention_scores.view(B * output_len, N)
+        attention_weights = self.softmax(attention_scores)
+        attention_weights = attention_weights.view(B, output_len, N)
+
+        # (batch_size, output_len, query_len) * (batch_size, query_len, dimensions) ->
+        # (batch_size, output_len, dimensions)
+        mix = torch.bmm(attention_weights, X)
+
+        # concat -> (batch_size * output_len, 2*dimensions)
+        combined = torch.cat((mix, Q), dim=2)
+        combined = combined.view(B * output_len, 2 * D)
+
+        # Apply linear_out on every 2nd dimension of concat
+        # output -> (batch_size, output_len, dimensions)
+        output = self.linear_out(combined).view(B, output_len, D)
+        output = self.tanh(output)
+
+        return output, attention_weights
