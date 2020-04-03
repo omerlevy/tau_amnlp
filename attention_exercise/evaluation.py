@@ -1,10 +1,7 @@
-import json
 import torch
 import torch.nn as nn
 
 import numpy as np
-import torch.nn.functional as F
-from torch.utils import data
 
 import pandas as pd
 
@@ -24,7 +21,7 @@ def evaluate(model, data_generator, iter_lim=None):
 
         M_s, v_q, y_true = M_s.to(device), v_q.to(device), y_true.to(device)
         y_logits, A = model(M_s, v_q)
-        _, y_pred = torch.max(y_logits.data, 1)
+        _, y_pred = torch.max(y_logits.data, -1)
 
         correct += (y_pred == y_true).sum()
         total += y_true.size(0)
@@ -89,7 +86,7 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=None
     return acc, eval_df, attention_df
 
 
-def fancy_display(eval_df, attention_df):
+def fancy_display(eval_df, attention_df, slicer):
     I = 6
     from pandas.io.formats.style import Styler
 
@@ -100,12 +97,12 @@ def fancy_display(eval_df, attention_df):
         style_vec[I+q] = 'background-color: lightgreen'
         return style_vec
 
-    eval_df_styled = eval_df.style\
+    eval_df_styled = eval_df[slicer].style\
         .format({'y_pred_prob': '{:.3e}'})\
         .apply(highlight_sentence, axis=1)\
         .background_gradient(subset=['y_pred_loss'], cmap='OrRd', high=0.1)
 
-    att_styled = attention_df.style \
+    att_styled = attention_df[slicer].style \
         .format('{:.2e}') \
         .background_gradient(axis=1, cmap='PuBu', high=0.1)
 
