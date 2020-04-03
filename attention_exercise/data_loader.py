@@ -21,6 +21,10 @@ class Vocab:
         self.running_id = 1
 
     def gen_id(self, string_key):
+        # TODO: Check why this is needed (google collab problem)
+        if len(string_key) == 0:
+            return 0
+
         idx = self.index.get(string_key, None)
         if not idx:
             idx = self.running_id

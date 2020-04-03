@@ -29,7 +29,7 @@ def evaluate(model, data_generator, iter_lim=None):
     return float(correct) / float(total)
 
 
-def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=None):
+def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
     if torch.cuda.is_available():
         device = torch.device("cuda")
     else:
@@ -57,17 +57,18 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=None
         correct += (y_pred == y_true).sum()
         total += y_true.size(0)
 
-        M_s = M_s.numpy()
+        M_s = M_s.cpu().numpy()
         for j in range(M_s.shape[0]):
             sentence_rows.append(tokens_vocab.decode(M_s[j]))
 
-        v_qs.append(v_q.numpy())
-        y_trues.append(y_true.numpy())
-        y_preds.append(y_pred.numpy())
-        As.append(A.detach().numpy())
+        v_qs.append(v_q.cpu().numpy())
+        y_true_np = y_true.cpu().numpy()
+        y_trues.append(y_true_np)
+        y_preds.append(y_pred.cpu().numpy())
+        As.append(A.detach().cpu().numpy())
 
-        probs = nn.Softmax(dim=1)(y_logits).detach().numpy()
-        y_probs = probs[range(len(probs)), y_true]
+        probs = nn.Softmax(dim=1)(y_logits).detach().cpu().numpy()
+        y_probs = probs[range(len(probs)), y_true_np]
         y_pred_probs.append(y_probs)
         y_pred_losss.append(-np.log(y_probs + 1e-7))
 
