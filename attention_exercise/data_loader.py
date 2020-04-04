@@ -54,32 +54,44 @@ class Vocab:
         return self.running_id
 
 
-def load_raw_data(S=None):
-    sentences_train_file = './data/sentences.train.jsonl'
-    senses_train_file = './data/senses.train.jsonl'
-    sentences_test_file = './data/sentences.test.jsonl'
-    senses_test_file = './data/senses.test.jsonl'
+def load(dataset_types, S=None, include_no_sense=True):
+    raw_datasets_dict, tokens_vocab, y_vocab = load_raw_data(dataset_types, S, include_no_sense)
 
-    if not os.path.exists(sentences_train_file):
-        print("Downloading tau_amnlp_semcor_dataset.zip...")
-        # https://drive.google.com/file/d/1bCs3xj8LHjGdof-68Opvccv4mfrXXGTH/view?usp=sharing
-        # prev --> https://docs.google.com/uc?export=download&id=1VmId8L7L8QGWu7QwRHgm309xHN3O2jOM
-        urllib.request.urlretrieve('https://docs.google.com/uc?export=download&id=1bCs3xj8LHjGdof-68Opvccv4mfrXXGTH',
-                                   "tau_amnlp_semcor_dataset.zip")
-        with zipfile.ZipFile('tau_amnlp_semcor_dataset.zip', 'r') as zip_ref:
-            zip_ref.extractall('./data')
-        print('Dataset was downloaded successfully and extracted to ./data')
+    ret = {}
+    for k in raw_datasets_dict:
+        ret[k] = WSDDataset(raw_datasets_dict[k], tokens_vocab, y_vocab)
 
+    return ret, tokens_vocab, y_vocab
+
+
+def load_raw_data(dataset_types, S=None, include_no_sense=True):
     y_vocab = Vocab()
     tokens_vocab = Vocab()
 
-    raw_train_dataset = __load_from_files(sentences_train_file, senses_train_file, tokens_vocab, y_vocab, S=S)
-    raw_test_dataset = __load_from_files(sentences_test_file, senses_test_file, tokens_vocab, y_vocab, S=S)
+    ret = {}
+    for dataset_type in dataset_types:
+        sentences_file = f'./data/sentences.{dataset_type}.jsonl'
+        senses_file = f'./data/senses.{dataset_type}.jsonl'
 
-    return raw_train_dataset, raw_test_dataset, tokens_vocab, y_vocab
+        if not os.path.exists(sentences_file):
+            print("Downloading tau_amnlp_semcor_dataset.zip...")
+            # https://drive.google.com/file/d/1mxPS3neImDAq7BeTTQZRT4afpPU7gOge/view?usp=sharing
+            urllib.request.urlretrieve(
+                'https://docs.google.com/uc?export=download&id=1mxPS3neImDAq7BeTTQZRT4afpPU7gOge',
+                "tau_amnlp_semcor_dataset.zip")
+            with zipfile.ZipFile('tau_amnlp_semcor_dataset.zip', 'r') as zip_ref:
+                zip_ref.extractall('./data')
+            print('Dataset was downloaded successfully and extracted to ./data')
+
+        raw_dataset = __load_from_files(
+            sentences_file, senses_file, tokens_vocab, y_vocab, S=S, include_no_sense=include_no_sense)
+
+        ret[dataset_type] = raw_dataset
+
+    return ret, tokens_vocab, y_vocab
 
 
-def __load_from_files(sentences_file, senses_file, tokens_vocab, y_vocab, S=None):
+def __load_from_files(sentences_file, senses_file, tokens_vocab, y_vocab, S=None, include_no_sense=True):
     raw_dataset = {
         'int_sentences': [],
         'str_sentences': [],
@@ -93,8 +105,6 @@ def __load_from_files(sentences_file, senses_file, tokens_vocab, y_vocab, S=None
                 break
             tokenized_sentence = json.loads(line)
             raw_dataset['str_sentences'].append(tokenized_sentence)
-            int_sentence = tokens_vocab.to_ids(tokenized_sentence)
-            raw_dataset['int_sentences'].append(int_sentence)
 
     with open(senses_file, 'r') as data:
         for i, line in enumerate(data):
@@ -102,21 +112,32 @@ def __load_from_files(sentences_file, senses_file, tokens_vocab, y_vocab, S=None
                 break
             labels = json.loads(line)
             raw_dataset['str_labels'].append(labels)
-            int_labels = y_vocab.to_ids(labels)
-            raw_dataset['int_labels'].append(int_labels)
+
+    for i, lbls in enumerate(raw_dataset['str_labels']):
+        str_sentence = raw_dataset['str_sentences'][i]
+        if not include_no_sense:
+            sense_idxs = [j for j in range(len(lbls)) if lbls[j] != NO_SENSE]
+            # print(sense_idxs)
+            lbls = [lbls[j] for j in sense_idxs]
+            str_sentence = [str_sentence[j] for j in sense_idxs]
+            raw_dataset['str_sentences'][i] = str_sentence
+            raw_dataset['str_labels'][i] = lbls
+
+        int_labels = y_vocab.to_ids(lbls)
+        raw_dataset['int_labels'].append(int_labels)
+        int_sentence = tokens_vocab.to_ids(str_sentence)
+        raw_dataset['int_sentences'].append(int_sentence)
 
     return raw_dataset
 
 
-# --> Can sort samples to create more compact batches (and then shuffle only inter-batch)
-# Check lazy loading
 class WSDDataset(data.Dataset):
 
     def __init__(self, raw_dataset, tokens_vocab, y_vocab, include_no_sense=False):
         self.raw_dataset = raw_dataset
-
         self.tokens_vocab = tokens_vocab
         self.y_vocab = y_vocab
+        self.include_no_sense = include_no_sense
 
         # N holds max sentence length
         self.N = max(map(len, raw_dataset['int_sentences']))
@@ -152,4 +173,65 @@ class WSDDataset(data.Dataset):
     def __repr__(self):
         S = len(self.raw_dataset['int_labels'])
         return f'Samples: {len(self.idx_tuples)} (no_sense: {self.no_sense_count})\nSentences: {S} (N={self.N})\n' \
+               f'Vocab:\n\tTokens:{self.tokens_vocab.size()}\n\tSenses:{self.y_vocab.size()}'
+
+
+class WSDSelfAttentionDataset(data.Dataset):
+
+    def __init__(self, raw_dataset, tokens_vocab, y_vocab, include_no_sense=False):
+        self.raw_dataset = raw_dataset
+        self.tokens_vocab = tokens_vocab
+        self.y_vocab = y_vocab
+        self.include_no_sense = include_no_sense
+
+        self.sentence_idxs = []
+        self.queries = None
+        self.labels = None
+
+        if include_no_sense:
+            self.qN = self.N
+            q_ranges = map(range, raw_dataset['int_sentences'])
+            self.queries = list(map(list, q_ranges))
+            self.labels = raw_dataset['int_labels']
+        else:
+            self.queries = []
+            self.labels = []
+            for s_idx, s in enumerate(raw_dataset['int_sentences']):
+                sense_query_idxs = [q for q in range(len(s)) if raw_dataset['str_labels'][s_idx][q] != NO_SENSE]
+                self.queries.append(sense_query_idxs)
+                self.labels.append([raw_dataset['int_labels'][s_idx][j] for j in sense_query_idxs])
+
+        self.sentence_idxs = [sidx for sidx in range(len(raw_dataset['int_sentences'])) if len(self.labels[sidx]) > 0]
+        # N holds max sentence length
+        self.N = max(map(len, raw_dataset['int_sentences']))
+        # qN holds max query length
+        self.qN = max(map(len, self.queries))
+        # print('x')
+
+    def __len__(self):
+        return len(self.sentence_idxs)
+
+    def __getitem__(self, index):
+        # print(index)
+        index = self.sentence_idxs[index]
+        sentence = self.raw_dataset['int_sentences'][index]
+        queries = self.queries[index]
+        labels = self.labels[index]
+
+        sent_pad = self.N - len(sentence)
+        q_pad = self.qN - len(queries)
+
+        sentence_tensor = F.pad(torch.tensor(sentence), (0, sent_pad))
+
+        queries_tensor = F.pad(torch.tensor(queries), (0, q_pad))
+
+        labels_tensor = F.pad(torch.tensor(labels), (0, q_pad))
+
+        # print(queries_tensor.dtype)
+
+        return sentence_tensor, queries_tensor, labels_tensor
+
+    def __repr__(self):
+        S = len(self.raw_dataset['int_labels'])
+        return f'Samples: {S}\nSentences: {S} (N={self.N})\n' \
                f'Vocab:\n\tTokens:{self.tokens_vocab.size()}\n\tSenses:{self.y_vocab.size()}'

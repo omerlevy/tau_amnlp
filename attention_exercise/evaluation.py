@@ -1,35 +1,45 @@
 import torch
 import torch.nn as nn
-
+from torch.utils import data
 import numpy as np
 
 import pandas as pd
 
 
-def evaluate(model, data_generator, iter_lim=None):
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
+def evaluate(model, dataset, iter_lim=None):
+    dataset_loader = data.DataLoader(dataset)
 
-    correct = 0
-    total = 0
+    with torch.set_grad_enabled(False):
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            device = torch.device("cpu")
 
-    for i, (M_s, v_q, y_true) in enumerate(data_generator):
-        if iter_lim is not None and i >= iter_lim:
-            break
+        correct = 0
+        total = 0
 
-        M_s, v_q, y_true = M_s.to(device), v_q.to(device), y_true.to(device)
-        y_logits, A = model(M_s, v_q)
-        _, y_pred = torch.max(y_logits.data, -1)
+        for i, (M_s, v_q, y_true) in enumerate(dataset_loader):
+            if iter_lim is not None and i >= iter_lim:
+                break
 
-        correct += (y_pred == y_true).sum()
-        total += y_true.size(0)
+            M_s, v_q, y_true = M_s.to(device), v_q.to(device), y_true.to(device)
+            y_logits, A = model(M_s, v_q)
+            _, y_pred = torch.max(y_logits.data, -1)
+
+            correct += (y_pred == y_true).sum()
+            total += y_true.size(0)
 
     return float(correct) / float(total)
 
 
-def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
+def evaluate_verbose(model, dataset, tokens_vocab, y_vocab, iter_lim=10):
+    g = data.DataLoader(
+        dataset,
+        batch_size=32,
+        shuffle=True,
+        num_workers=1
+    )
+
     if torch.cuda.is_available():
         device = torch.device("cuda")
     else:
@@ -39,6 +49,7 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
     total = 0
 
     sentence_rows = []
+    q_tokens = []
     As = []
     v_qs = []
     y_preds = []
@@ -46,7 +57,7 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
     y_pred_probs = []
     y_pred_losss = []
 
-    for i, (M_s, v_q, y_true) in enumerate(data_generator):
+    for i, (M_s, v_q, y_true) in enumerate(g):
         if iter_lim is not None and i >= iter_lim:
             break
 
@@ -60,6 +71,7 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
         M_s = M_s.cpu().numpy()
         for j in range(M_s.shape[0]):
             sentence_rows.append(tokens_vocab.decode(M_s[j]))
+            q_tokens.append(tokens_vocab.inverted_index[M_s[j][v_q[j]]])
 
         v_qs.append(v_q.cpu().numpy())
         y_true_np = y_true.cpu().numpy()
@@ -76,10 +88,11 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
 
     eval_df = pd.DataFrame(sentence_rows)
     eval_df.insert(0, 'query', np.concatenate(v_qs))
-    eval_df.insert(1, 'y_true', y_vocab.decode(np.concatenate(y_trues)))
-    eval_df.insert(2, 'y_pred', y_vocab.decode(np.concatenate(y_preds)))
-    eval_df.insert(3, 'y_pred_prob', np.concatenate(y_pred_probs))
-    eval_df.insert(4, 'y_pred_loss', np.concatenate(y_pred_losss))
+    eval_df.insert(1, 'query_token', q_tokens)
+    eval_df.insert(2, 'y_true', y_vocab.decode(np.concatenate(y_trues)))
+    eval_df.insert(3, 'y_pred', y_vocab.decode(np.concatenate(y_preds)))
+    eval_df.insert(4, 'y_pred_prob', np.concatenate(y_pred_probs))
+    eval_df.insert(5, 'y_pred_loss', np.concatenate(y_pred_losss))
 
     eval_df.reset_index(inplace=True)
 
@@ -88,7 +101,7 @@ def evaluate_verbose(model, data_generator, tokens_vocab, y_vocab, iter_lim=10):
 
 
 def fancy_display(eval_df, attention_df, slicer):
-    I = 6
+    I = 7
     from pandas.io.formats.style import Styler
 
     def highlight_sentence(row):
@@ -98,12 +111,12 @@ def fancy_display(eval_df, attention_df, slicer):
         style_vec[I+q] = 'background-color: lightgreen'
         return style_vec
 
-    eval_df_styled = eval_df[slicer].style\
+    eval_df_styled = eval_df.iloc[slicer].style\
         .format({'y_pred_prob': '{:.3e}'})\
         .apply(highlight_sentence, axis=1)\
         .background_gradient(subset=['y_pred_loss'], cmap='OrRd', high=0.1)
 
-    att_styled = attention_df[slicer].style \
+    att_styled = attention_df.iloc[slicer].style \
         .format('{:.2e}') \
         .background_gradient(axis=1, cmap='PuBu', high=0.1)
 
