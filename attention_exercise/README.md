@@ -1,0 +1,103 @@
+# Attention 
+
+This exercise follows lecture two in which the attention model was presented.
+
+We will work on an annotated dataset called SemCor https://www.gabormelli.com/RKB/SemCor_Corpus, 
+and implement a few variations of the basic attention model, according to the exercises described in the lecture.
+
+The dataset is manually annotated, each labeled word given a label which is the sense of that word in the given 
+context. To describe a word in a sentence, we may use the term word or token interchangeably (my apologies).
+
+You will need a gpu to train the model, google collab should be a good choice. 
+Remember to upload the three python files data_loader.py, model.py, and traineval.py for the notebook 
+to be able top use them.
+
+It is recommended to develop and debug locally, and only use collab for the full datasets once you have 
+a properly working model. 
+
+## Background
+The SemCor dataset was pre-processed and split to train (80%), dev (10%) and test(10%).
+
+**Question for Omer** --> What is the proper way to handle the test set? Since all datasets should share the vocabulary,
+should we just load them all together from the beginning?
+
+All the code you will need to implement will either be in model.py, or in the wsd_model.ipynb notebook 
+(abbreviated hereafter as **the** notebook).
+That said, feel free to take a look at traineval.py - containing training and evaluation code, 
+and data_loader.py, containing data loading code.
+
+If you look at data_loader.py, you will notice a simple Vocabulary implementation, which serves for
+vocabulary bookkeeping of sense and word integer ids encoding and decoding.
+
+The two torch.utils.data.Dataset implementations in data_loader.py serve the two "modes of operation" corresponding to
+single word attention and self attention.
+
+WSDDataset serves single word attention, in which a sample consists of the 3-tuple (sentence, query, label),
+The query is the index of the to-be-disambiguated word in the sentence. The label is the annotated sense.
+All three tensors are integer encoded, and their string representation can be looked uo in the appropriate vocabulary.
+Note there is a special key for non labeled words - 'no_sense'. These samples are not served by this dataset
+implementation.
+
+WSDSentencesDataset serves self attention, in which a sample consists of the 2-tuple (sentence, labels),
+In this case, the sentence itself serves as the query, and the labels provide annotated sense for every word in the 
+sentence.
+
+Note that in order to facilitate batching, the sentences (in both dataset implementations) and labels (in the 2nd one) are padded
+to the maximum sentence length.
+
+We will follow notation used in the lecture for the most part, and use the following dimension variables;
+B: Batch dimension, will be 100 unless you change it.
+N: Sentence length, automatically computed by WSDDataset according to the longest sentence.
+D: Embedding dimension, set to 300 by default.
+
+The notebook will walk you through the train / eval / analyse process for Exercise 2A.
+Exercises 2B and 2C should follow the same basic workflow.
+
+
+## Exercise 2A: Attention
+
+####  2A.1: Single Query Attention
+Take a look at model.py. The WSD model is already initialized following notation from the lecture.
+Fill in your code at the "TODO Ex2A" placeholders.
+The v_q argument representing the query is optional, since we will use the same model to implement self attention later.
+Don't worry for now about the mask argument passed to the attention function - we'll deal with that later. 
+
+Use the notebook and the hyperparameters as specified by it to train your model, 
+and plot loss and accuracy to validate convergence.  
+When things are looking sharp, you can proceed to visualize the model's attention using the api provided.
+
+Can you notice anything that might be off? 
+
+####  2A.2: Attending Padding
+Apparently, the model learns to "attend" to padded indices as if they were legitimate tokens.
+As the padding was introduces to solve a technical problem and should not be considered by the model at all, 
+you are going to mask it out.
+
+Use the mask argument in your freshly implemented attention function to "zero out" any padding attention
+factors.  
+
+### 2A.3: Self Attention
+Change your implementation so that it can handle self attention as described in the lecture.
+
+Recall that in self attention mode, the model is served with the sentences matrix (M_s) only, i.e. the optional
+v_q argument is not passed. Take a look at the training / eval implementation - the logic there switches between 
+the two modes according to a flag on dataset object - sample_type='word' or sample_type='sentence'.
+The notebook will take you through the simple process of converting the word level datasets to
+sentence level ones.
+
+Follow the notebook to run training, loss inspection and visualization of attention.
+Notice the change in performance, and the earlier convergence.
+
+## Exercise 2B: Position-Sensitive Attention
+Extend your model to add position sensitivity.
+Verify your newly attained position sensitivity using the attention visualization provided.
+
+
+## Exercise 2C: Causal Attention
+Implement a causal attention model, by extending your existing one with a "causal mode".
+Verify causality using the attention visualization provided.
+ 
+ 
+ **NOTE**: Depending on implementation, highlight visualization code might need to be changed to accomodate 2B and 2C, 
+ as it currently supports only models that can predict single word attention.
+ 
