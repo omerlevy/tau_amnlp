@@ -1,3 +1,5 @@
+import statistics
+
 import torch
 from tqdm import tqdm
 from torch import nn
@@ -46,10 +48,10 @@ def train(model, optimizer, wsd_train_dataset, wsd_dev_dataset, num_epochs=20, b
     val_acc = []
 
     for epoch in range(num_epochs):
+
         model.eval()
         cur_train_acc = evaluate(model, training_generator, iter_lim=100, ignore_label=no_sense_index)
         train_acc.append(cur_train_acc)
-
         cur_val_acc = evaluate(model, val_generator, ignore_label=no_sense_index)
         val_acc.append(cur_val_acc)
 
@@ -65,8 +67,15 @@ def train(model, optimizer, wsd_train_dataset, wsd_dev_dataset, num_epochs=20, b
                 optimizer.step()
 
                 train_loss.append(loss.item())
-                status_str = f'[{epoch}] loss: {train_loss[-1]:.3f}'
+                running_mean_loss = statistics.mean(train_loss[-min(len(train_loss), 100):])
+                status_str = f'[{epoch}] loss: {running_mean_loss:.3f}'
                 prg_train.set_description(status_str)
+
+    model.eval()
+    cur_train_acc = evaluate(model, training_generator, iter_lim=100, ignore_label=no_sense_index)
+    train_acc.append(cur_train_acc)
+    cur_val_acc = evaluate(model, val_generator, ignore_label=no_sense_index)
+    val_acc.append(cur_val_acc)
 
     return train_loss, train_acc, val_acc
 
@@ -124,6 +133,8 @@ def __run_sample(sample, model, is_sentence_samples):
 
 
 def evaluate_verbose(model, dataset, iter_lim=10, shuffle=True):
+
+    # TODO check self attention mode
 
     g = data.DataLoader(
         dataset,
@@ -186,7 +197,7 @@ def evaluate_verbose(model, dataset, iter_lim=10, shuffle=True):
     eval_df.reset_index(inplace=True)
 
     attention_df = pd.DataFrame(np.concatenate(As))
-    return acc, eval_df, attention_df
+    return eval_df, attention_df
 
 
 def highlight(eval_df, attention_df, slicer):
@@ -196,7 +207,12 @@ def highlight(eval_df, attention_df, slicer):
     def highlight_sentence(row):
         q = row['query']
         style_vec = [''] * I
-        style_vec += Styler._background_gradient(attention_df.loc[row['index']])
+
+        row_attention = attention_df.loc[row['index']]
+        style_arr = np.array(['']*len(row_attention), dtype='<U50')
+        style_arr[row_attention > 0] = np.array(Styler._background_gradient(row_attention[row_attention > 0]))
+
+        style_vec += list(style_arr)
         style_vec[I + q] = 'background-color: lightgreen'
         return style_vec
 
@@ -209,4 +225,15 @@ def highlight(eval_df, attention_df, slicer):
         .format('{:.2e}') \
         .background_gradient(axis=1, cmap='PuBu', high=0.1)
 
-    return eval_df_styled, att_styled
+    return eval_df_styled
+
+
+def higlight_samples(model, dataset, sample_size=20, correct_only=False):
+    eval_df, attention_df = evaluate_verbose(model, dataset, iter_lim=100)
+    if correct_only:
+        idxs = np.where(eval_df['y_true'] == eval_df['y_pred'])
+        idxs = list(idxs[0][:sample_size])
+    else:
+        idxs = list(range(sample_size))
+
+    return highlight(eval_df, attention_df, idxs)

@@ -11,7 +11,8 @@ else:
 
 
 class WSDModel(nn.Module):
-    def __init__(self, V, Y, D=300, dropout_prob=0.2, q_dim=1):
+
+    def __init__(self, V, Y, D=300, dropout_prob=0.2):
         super(WSDModel, self).__init__()
         self.D = D
 
@@ -27,40 +28,52 @@ class WSDModel(nn.Module):
 
         self.dropout_layer = nn.Dropout(p=dropout_prob)
         self.softmax = torch.nn.Softmax(dim=-1)
-        self.layer_norm = nn.LayerNorm([q_dim, self.D])
+        self.layer_norm = nn.LayerNorm([self.D])
 
-    def attention(self, X, Q):
-        # X: [B, N, D]
-        # Q: [B, k, D] with k=1 or N
+    def attention(self, X, Q, mask):
+        """
+        Computes the contextualized representation of query Q, given context X, using the attention model.
 
-        Q = Q @ self.W_A / math.sqrt(self.D)
+        :param X:
+            Context matrix of shape [B, N, D]
+        :param Q:
+            Query matrix of shape [B, k, D], where k equals 1 (in single word attention) or N (self attention)
+        :param mask:
+            Boolean mask indicating padding indices in the context X.
 
-        # A: [B, 1, N]
-        A = self.softmax(Q @ X.transpose(1, 2))
-        Q_c = A @ X
+        :return:
+            Contextualized query and attention matrix / vector
+        """
+        Q_c = None
+        A = None
 
-        Q_c = Q_c @ self.W_O
+        # TODO Ex2A: Your code here.
 
-        return Q_c, A.squeeze()
+        return Q_c, A
 
     def forward(self, M_s, v_q=None):
-        # M_s: [B, N]
-        # v_q: [B]
+        """
+        :param M_s:
+            [B, N] dimensional matrix containing token integer ids
+        :param v_q:
+            [B] dimensional vector containing query word indices within the sentences represented by M_s.
+            This argument is only passed in single word attention mode.
+
+        :return: logits and attention tensors.
+        """
 
         X = self.dropout_layer(self.E_v(M_s))
 
+        Q = None
         if v_q is not None:
-            # Broadcast v_q to [B, 1, D] for gather
-            broadcast_shape = (v_q.shape[0], 1, self.D)
-            broadcast_tensor = torch.ones(broadcast_shape, dtype=int, device=device)
-            M_q_broadcasted = v_q[:, None, None] * broadcast_tensor
-
-            # [B, 1, D]
-            Q = torch.gather(X, 1, M_q_broadcasted)
+            pass
+            # TODO Ex2A: Your Code Here.
         else:
-            Q = X
+            pass
+            # TODO Ex2A: Your Code Here.
 
-        Q_c, A = self.attention(X, Q)
+        mask = M_s.ne(0)
+        Q_c, A = self.attention(X, Q, mask)
 
         H = self.layer_norm(Q_c + Q)
 
