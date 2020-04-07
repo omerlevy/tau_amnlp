@@ -23,7 +23,7 @@ class Vocab:
         self.inverted_index = {v: k for k, v in self.index.items()}
 
     def size(self):
-        return self.running_id + 1
+        return self.running_id
 
     def encode(self, string, generate_id=True):
         """
