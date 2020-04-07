@@ -89,7 +89,7 @@ Extend your model to add position sensitivity.
 Verify your newly attained position sensitivity using the attention visualization provided.
 
 
-## Exercise 2C: Causal Attention
+## Exercise 2D: Causal Attention
 Implement a causal attention model, by extending your existing one with a "causal mode".
 Verify causality using the attention visualization provided.
  
