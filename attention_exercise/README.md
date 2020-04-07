@@ -21,26 +21,20 @@ The SemCor dataset was pre-processed and split to train (80%), dev (10%) and tes
 should we just load them all together from the beginning?
 
 All the code you will need to implement will either be in model.py, or in the wsd_model.ipynb notebook 
-(abbreviated hereafter as **the** notebook).
-That said, feel free to take a look at traineval.py - containing training and evaluation code, 
-and data_loader.py, containing data loading code.
+(abbreviated hereafter as **the** notebook). That said, feel free to change other parts of the code as well.
 
 It is recommended to develop and debug locally, and only use collab for the full datasets once you have 
 a properly working model. Alternatively, you may choose to copy the model code into collab notebook, thus eliminating
 the need to upload a file after every code change.
 
-If you look at data_loader.py, you will notice a simple Vocabulary implementation, which serves for
-vocabulary bookkeeping of sense and word integer ids encoding and decoding.
-The two torch.utils.data.Dataset implementations located in the same file serve the two "modes of operation" corresponding to
-single word attention and self attention.
-
-WSDDataset serves single word attention, in which a sample consists of the 3-tuple (sentence, query, label),
+If you look at data_loader.py, you will see 3 classes:
+* Vocabulary implementation, which serves for vocabulary bookkeeping of sense and word integer ids encoding and decoding.
+* WSDDataset serves single word attention, in which a sample consists of the 3-tuple (sentence, query, label),
 The query is the index of the to-be-disambiguated word in the sentence. The label is the annotated sense.
 All three tensors are integer encoded, and their string representation can be looked uo in the appropriate vocabulary.
 Note there is a special key for non labeled words - 'no_sense'. These samples are not served by this dataset
 implementation.
-
-WSDSentencesDataset serves self attention, in which a sample consists of the 2-tuple (sentence, labels),
+* WSDSentencesDataset serves self attention, in which a sample consists of the 2-tuple (sentence, labels),
 In this case, the sentence itself serves as the query, and the labels provide annotated sense for every word in the 
 sentence.
 
@@ -48,9 +42,9 @@ Note that in order to facilitate batching, the sentences (in both dataset implem
 are padded to the maximum sentence length.
 
 We will follow notation used in the lecture for the most part, and use the following dimension variables;
-B: Batch dimension, will be 100 unless you change it.
-N: Sentence length, automatically computed by WSDDataset according to the longest sentence.
-D: Embedding dimension, set to 300 by default.
+* B: Batch dimension, will be 100 unless you change it.
+* N: Sentence length, automatically computed by WSDDataset according to the longest sentence.
+* D: Embedding dimension, set to 300 by default.
 
 The notebook will walk you through the train / eval / analyse process for Exercise 2A.
 Exercises 2B and 2C should follow the same basic workflow.
@@ -58,7 +52,7 @@ Exercises 2B and 2C should follow the same basic workflow.
 
 ## Exercise 2A: Attention
 
-####  2A.1: Single Query Attention
+###  2A.1: Single Query Attention
 Take a look at model.py. The WSD model is already initialized with embeddings and attention matrices with variable names 
 following notation from the lecture. Fill in your code at the "TODO Ex2A" placeholders.
 The v_q argument representing the query is optional, since we will use the same model to implement self attention.
@@ -70,7 +64,7 @@ in the next cells.
 
 Can you notice anything that might be off? 
 
-####  2A.2: Attending Padding
+###  2A.2: Attending Padding
 Apparently, the model learns to "attend" the padded indices as if they were legitimate tokens.
 As the padding was introduced to solve a technical problem and should not be considered by the model at all, 
 you are going to mask it out.
