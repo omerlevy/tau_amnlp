@@ -58,6 +58,20 @@ following notation from the lecture. Fill in your code at the "TODO Ex2A" placeh
 The v_q argument representing the query is optional, since we will use the same model to implement self attention.
 Don't worry for now about the mask argument passed to the attention function - we'll deal with that later. 
 
+Single word attention for word q in context X is given by
+```
+a = softmax(q @ W_A @ X.T)
+q_c = a @ X @ W_O
+```
+
+where @ denotes matrix multiplication, q - the query word embedding, W_A, W_O attention parameters matrices,
+and X the context embedding - sentence in out case.
+The prediction produced by the model is then computed as
+```
+h = layer_norm(q_c + q)
+p(y) = softmax(h @ E_Y.T)
+```
+
 Use the notebook and the hyperparameters as specified by it to train your model, and plot loss and accuracy to validate convergence.  
 When things are looking sharp, you can proceed to visualize the model's attention using the api provided as demonstrated 
 in the next cells.
@@ -80,6 +94,12 @@ v_q argument is not passed. Take a look at the training / eval implementation - 
 the two modes according to a flag on the dataset object; sample_type='word' or sample_type='sentence'.
 The notebook will take you through the simple process of converting the word level datasets to
 sentence level ones.
+
+Self attention for context X is given by
+```
+A = softmax(X @ W_A @ X.T)
+Q_c = A @ X @ W_O
+```
 
 Follow the notebook to run training, loss inspection and visualization of attention.
 Notice the change in performance, and the earlier convergence.
