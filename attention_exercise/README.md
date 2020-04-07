@@ -5,14 +5,14 @@ This exercise is the based on the attention models discussed in lecture two of t
 We will work on an annotated dataset called SemCor https://www.gabormelli.com/RKB/SemCor_Corpus, 
 and implement a few variations of the basic attention model following to the exercises described in the lecture.
 
-The dataset is comprised of a collection of sentences, which will play the role of our context.
-In every sentence, all words with clear sense given its context (=sentence) was labeled, resulting in a total of
-roughly 30% annotated words The 70% remainder of the words were given a "no_sense" label.
+The dataset is comprised of a collection of sentences, each of them we will consider as seperate context.
+In every sentence, all words with clear sense were labeled, resulting in a total of
+roughly 30% annotated words. The 70% remainder of the words were given a "no_sense" label.
 To describe a word in a sentence, we may use the terms word or token interchangeably (my apologies).
 
 You will need a gpu to train the model, google collab should be a good choice. 
 Remember to upload the three python files data_loader.py, model.py, and traineval.py for the notebook 
-to be able top use them.
+to be able to use them.
 
 ## Background
 The SemCor dataset was pre-processed and split to train (80%), dev (10%) and test(10%) using the build_dataset.py script.
@@ -21,7 +21,7 @@ The SemCor dataset was pre-processed and split to train (80%), dev (10%) and tes
 should we just load them all together from the beginning?
 
 All the code you will need to implement will either be in model.py, or in the wsd_model.ipynb notebook 
-(abbreviated hereafter as **the** notebook). That said, feel free to change other parts of the code as well.
+(abbreviated hereafter as **the** notebook). That said, feel free to change other parts of the code as well if you like. 
 
 It is recommended to develop and debug locally, and only use collab for the full datasets once you have 
 a properly working model. Alternatively, you may choose to copy the model code into collab notebook, thus eliminating
@@ -73,8 +73,7 @@ p(y) = softmax(h @ E_Y.T)
 ```
 
 Use the notebook and the hyperparameters as specified by it to train your model, and plot loss and accuracy to validate convergence.  
-When things are looking sharp, you can proceed to visualize the model's attention using the api provided as demonstrated 
-in the next cells.
+When things are looking sharp, you can proceed to visualize the model's attention using the api provided as demonstrated.
 
 Can you notice anything that might be off? 
 
