@@ -48,6 +48,7 @@ class WSDModel(nn.Module):
         A = None
 
         # TODO Part 1: Your code here.
+        # Have a look at the difference between torch.matmul() and torch.bmm().
 
         return Q_c, A
 
@@ -67,6 +68,7 @@ class WSDModel(nn.Module):
         Q = None
         if v_q is not None:
             # TODO Part 1: Your Code Here.
+            # Look up the gather() and expand() methods in PyTorch.
             pass
         else:
             # TODO Part 3: Your Code Here.
