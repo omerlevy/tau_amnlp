@@ -47,7 +47,7 @@ class WSDModel(nn.Module):
         Q_c = None
         A = None
 
-        # TODO Ex2A: Your code here.
+        # TODO Part 1: Your code here.
 
         return Q_c, A
 
@@ -67,16 +67,15 @@ class WSDModel(nn.Module):
         Q = None
         if v_q is not None:
             pass
-            # TODO Ex2A: Your Code Here.
+            # TODO Part 1: Your Code Here.
         else:
             pass
-            # TODO Ex2A: Your Code Here.
+            # TODO Part 3: Your Code Here.
 
         mask = M_s.ne(0)
         Q_c, A = self.attention(X, Q, mask)
-
         H = self.layer_norm(Q_c + Q)
-
+        
         E_y = self.dropout_layer(self.E_y.weight)
         y_logits = (H @ E_y.T).squeeze()
         return y_logits, A
