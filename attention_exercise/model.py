@@ -66,11 +66,11 @@ class WSDModel(nn.Module):
 
         Q = None
         if v_q is not None:
-            pass
             # TODO Part 1: Your Code Here.
-        else:
             pass
+        else:
             # TODO Part 3: Your Code Here.
+            pass
 
         mask = M_s.ne(0)
         Q_c, A = self.attention(X, Q, mask)
