@@ -1,4 +1,5 @@
 .idea/**
+*.code_workspace
 */data
 tau_amnlp_semcor_dataset.zip
 .history
