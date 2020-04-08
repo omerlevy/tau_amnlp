@@ -8,6 +8,8 @@ from torch.utils import data
 import urllib
 import zipfile
 
+PAD = ''
+UNK = '<UNK>'
 NO_SENSE = 'no_sense'
 
 
@@ -15,8 +17,9 @@ class Vocab:
 
     def __init__(self):
         self.padding_idx = 0
-        self.running_id = 1
-        self.index = {}
+        self.unk_idx = 1
+        self.running_id = 2
+        self.index = {PAD: 0, UNK: 1}
         self.inverted_index = {}
 
     def __invert_index(self):
@@ -27,20 +30,18 @@ class Vocab:
 
     def encode(self, string, generate_id=True):
         """
-        Get or generate and index the integer id for the given string
+        Get or generate and index the integer id for the given string.
 
         :param string: string to get / generate integer id for
         :param generate_id: Whether to generate an id if string is not already indexed
         :return:
         """
-        idx = self.index.get(string, None)
-        if idx is None:
+        idx = self.index.get(string, self.unk_idx)
+        if idx is self.unk_idx:
             if generate_id:
                 idx = self.running_id
                 self.index[string] = idx
                 self.running_id += 1
-            else:
-                raise ValueError(f"{string} not found in index")
         return idx
 
     def encode_list(self, strings, generate_id=True):
@@ -54,10 +55,7 @@ class Vocab:
         if len(self.inverted_index) != len(self.index):
             self.__invert_index()
 
-        if id == self.padding_idx:
-            return ''
-        else:
-            return self.inverted_index[id]
+        return self.inverted_index[id]
 
     def decode_list(self, ids):
         return [self.decode(i) for i in ids]
@@ -73,6 +71,9 @@ def load(dataset_types, sentence_count=None):
         tokens_vocab: tokens vocabulary
         y_vocab: senses vocabulary
     """
+    
+    #TODO add logic that sets the vocab only according to the TRAIN set, and then uses generate_id=False for dev/test
+
     y_vocab = Vocab()
     tokens_vocab = Vocab()
 
@@ -233,10 +234,8 @@ class WSDSentencesDataset(data.Dataset):
         labels = self.raw_dataset['int_labels'][index]
 
         pad = self.N - len(sentence)
-
         sentence_tensor = F.pad(torch.tensor(sentence), (0, pad))
-
-        labels_tensor = F.pad(torch.tensor(labels), (0, pad), value=self.y_vocab.index[NO_SENSE])
+        labels_tensor = F.pad(torch.tensor(labels), (0, pad))
 
         return sentence_tensor, labels_tensor
 
