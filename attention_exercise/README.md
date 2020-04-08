@@ -13,7 +13,7 @@ You will implement various forms of attention and use the performance on WSD, as
 ### Coding
 
 Most of the code you will need to implement will either be in `model.py`, or in the `wsd_model.ipynb` notebook (a.k.a. **the** notebook).
-The notebook will walk you through the first few parts of the exercise, after which you should be familiar enough with the code to implement the rest.
+The notebook will walk you through parts 1-3 of the exercise, after which you should be familiar enough with the code to implement the rest.
 Feel free to change any part of the code.
 
 You will need a GPU to train the model. There are two options:
@@ -84,31 +84,30 @@ Hint: softmax is an exponential function; what input `z` will ensure that `exp(z
 
 Change your implementation so that it can handle self-attention.
 
-Recall that in self attention mode, the model is served with the sentences matrix (M_s) only, i.e. the optional
-v_q argument is not passed. Take a look at the training / eval implementation - the logic there switches between 
-the two modes according to a flag on the dataset object; sample_type='word' or sample_type='sentence'.
-The notebook will take you through the simple process of converting the word level datasets to
-sentence level ones.
+Recall that in self-attention, the model is given only the sentences matrix (`M_s`), i.e. the optional `v_q` argument is not passed.
+Take a look at the training / eval implementation -- the logic there switches between the two modes according to a flag on the dataset object: `sample_type='word'` or `sample_type='sentence'`.
+The notebook will take you through the simple process of converting the word level datasets to sentence level ones.
 
-Self attention for context X is given by
-```
-A = softmax(X @ W_A @ X.T)
-Q_c = A @ X @ W_O
-```
+Follow the notebook to run training, loss inspection, and visualization of attention.
+What changed in the training process? How does the performance change?
 
-Follow the notebook to run training, loss inspection and visualization of attention.
-Notice the change in performance, and the earlier convergence.
-
-## Exercise 2B: Position-Sensitive Attention
-Extend your model to add position sensitivity.
-Verify your newly attained position sensitivity using the attention visualization provided.
+**NOTE:** Depending on implementation, the visualization code might need to be changed as it currently supports only query-based attention models.
 
 
-## Exercise 2D: Causal Attention
-Implement a causal attention model, by extending your existing one with a "causal mode".
-Verify causality using the attention visualization provided.
- 
- 
- **NOTE**: Depending on implementation, highlight visualization code might need to be changed to accomodate 2B and 2C, 
- as it currently supports only models that can predict single word attention.
- 
+## Part 4: Position-Sensitive Attention
+
+Extend your model to add *relative* positions. Specifically, implement the simplified version of (Shaw et al., 2018), as shown in the lesson.
+
+Retrain, evaluate, and analyze the model.
+How does performance change? Use the visualization tool to verify that the model prefers to attend on local neighbors.
+
+
+## Part 5: Causal Attention
+
+How can we use relative positions to implement causal attention?
+Define a property of the relative position function such that the attention weights are causal, i.e. queries cannot attend on contexts that appear later in the sequence.
+Implement causal attention in your WSD model.
+
+Retrain, evaluate, and analyze the model.
+How did causal attention affect the model’s performance?
+Use the visualization tool to verify that the model does not attend on "future" tokens.
