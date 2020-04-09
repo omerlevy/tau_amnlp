@@ -6,6 +6,7 @@ from torch import nn
 from torch.utils import data
 import numpy as np
 import pandas as pd
+import html
 
 NO_SENSE = 'no_sense'
 
@@ -170,8 +171,9 @@ def evaluate_verbose(model, dataset, iter_lim=10, shuffle=True):
 
         M_s = M_s.cpu().numpy()
         for j in range(M_s.shape[0]):
-            sentence_rows.append(tokens_vocab.decode_list(M_s[j]))
-            q_tokens.append(tokens_vocab.inverted_index[M_s[j][v_q[j]]])
+            s = list(map(html.escape, tokens_vocab.decode_list(M_s[j])))
+            sentence_rows.append(s)
+            q_tokens.append(html.escape(tokens_vocab.decode(M_s[j][v_q[j]])))
 
         v_qs.append(v_q.cpu().numpy())
         y_true_np = y_true.cpu().numpy()
@@ -189,8 +191,8 @@ def evaluate_verbose(model, dataset, iter_lim=10, shuffle=True):
     eval_df = pd.DataFrame(sentence_rows)
     eval_df.insert(0, 'query', np.concatenate(v_qs))
     eval_df.insert(1, 'query_token', q_tokens)
-    eval_df.insert(2, 'y_true', y_vocab.decode_list(np.concatenate(y_trues)))
-    eval_df.insert(3, 'y_pred', y_vocab.decode_list(np.concatenate(y_preds)))
+    eval_df.insert(2, 'y_true', list(map(html.escape, y_vocab.decode_list(np.concatenate(y_trues)))))
+    eval_df.insert(3, 'y_pred', list(map(html.escape, y_vocab.decode_list(np.concatenate(y_preds)))))
     eval_df.insert(4, 'y_pred_prob', np.concatenate(y_pred_probs))
     eval_df.insert(5, 'y_pred_loss', np.concatenate(y_pred_losss))
 
