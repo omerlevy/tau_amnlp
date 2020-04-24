@@ -107,15 +107,13 @@ This will run the same masking experiment for each attention head in the model, 
 What do we learn from these results? Which heads can be safely removed without incurring a significant change in performance (up to 0.5 BLEU)? Which heads are more critical? Is the trend consistent with the findings in the paper?
 
 
-## Training a sandwitch model on IWSLT'14 German to English
+## Part 3: Reordering Transformer Sublayers
 
-In this part of the excersice, we will see the effect of different configuration of the transformers.
-As mentioned in lecture 3, both the encoder transformer and the decoder transformer contain Multi head attention part - MHA (in the decoder we reffer to
-both self attention and cross attention) followed by 2 layer feed forward netowork - FFN
+We would like to replicate the idea in [Improving Transformer Models by Reordering their Sublayers](https://arxiv.org/abs/1911.03864), where new transformer configurations can be created by chaining multi-head attention and feed-forward sublayers in arbitrary patterns. Your task is to implement this ability in fairseq.
 
-we reffer the regular configuration as AFAFAFAFAFAF (we mark MHA layer as A and the FFN part layer as F)
-and now we will check another configuration, and see it's result
+We have added the ```enc-layer-configuration``` and ```dec-layer-configuration``` arguments to fairseq. These receive a string made of "A"s and "F"s, symbolizing multi-head attention feed-forward sublayers, respectively. For example, the original transformer architecture is "AFAFAFAFAFAF". Note that in the decoder, we define "A" as (causal) self-attention followed by cross attention and treat both sublayers as a single atomic unit.
 
+To test your implementation, you will have to retrain the transformer. Here is an example of one architecture in which all the feed-forward layers are applied before the multi-head attention sublayers:
 ```
 CUDA_VISIBLE_DEVICES=0 python train.py \
     data-bin/iwslt14.tokenized.de-en \
@@ -133,5 +131,9 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     --dec-layer-configuration 'FFFFFFAAAAAA'
 ```
 
-follow the enc-layer-configuration and dec-layer-configuration arguments and implement TransformerEncoderLayerFFN TransformerEncoderLayerMHA 
-TransformerDecoderLayerMHA and TransformerEncoderLayerFFN
+Once you are done implementing and testing your code, train two additional configurations of your choosing, and determine (by evaluating them with ```generate.py```, as in Part 1) whether your proposed modification improved, hurt, or did not have a significant effect on performance. Here are some ideas for possible patterns:
+* Sandwich transformers ("AAAFAFAFAFFF")
+* No feed-forward layers at all ("AAAAAA" or "AAAAAAAAAAAAAAAAAA", the latter being equivalent to the baseline in number of parameters)
+* Less attention, more feed-forward ("AFFFAFFF" or "AFFFAFFFFF", the latter being equivalent to the baseline in number of parameters)
+
+**Good luck!**
