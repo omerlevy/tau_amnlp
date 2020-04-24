@@ -81,8 +81,14 @@ This step runs beam search (Lesson 5) and generates discrete strings. The system
 
 ## Part 2: Masking Attention Heads
 
-In this part of the excersice, we will see the effect of masking different heads in the transformer layers.
+We would like to replicate one of the experiments in [Are Sixteen Heads Really Better than One?](https://arxiv.org/abs/1905.10650), in which we mask a single attention head each time and test the model's performance.
+To that end, we have added an additional command-line argument to ```generate.py``` that specifies which attention head needs to be masked (see below). Your task is to mask the correct head given the argument.
 
+Specifically, you should read the command line arguments (```args.mask_layer```, ```args.mask_head```, ```args.mask_layer_name```) in the transformer's constructor and pass a masking flag to the relevant multi-head attention sublayer. The transformer's implementation can be found in [fairseq/models/transformer.py](fairseq/models/transformer.py). Note that there are two classes (encoder and decoder), and both need to be modified.
+
+You will then need to implement the actual masking in [fairseq/modules/multihead_attention.py](fairseq/modules/multihead_attention.py).
+
+After making your changes, you can debug them by running the following script:
 ```
 CUDA_VISIBLE_DEVICES=0 python generate.py data-bin/iwslt14.tokenized.de-en \
     --path baseline/checkpoint_best.pt \
@@ -90,24 +96,16 @@ CUDA_VISIBLE_DEVICES=0 python generate.py data-bin/iwslt14.tokenized.de-en \
 	--fp16 \
     --model-overrides "{'mask_layer': 5, 'mask_head': 3, 'mask_layer_name': 'enc-dec'}"
 ```
-mask_layer is the layer number to mask
-mask_head is the head number to mask
-mask_layer_name is the name of the attention to mask - 'enc-enc' is the transformer encoder self attention
-													 - 'enc-dec' is the transformer decoder cross attention
-													 - 'dec-dec' is the transformer decoder self attention
+The arguments ```mask_layer``` and ```mask_head``` specify the layer (0-5) and head (0-3) to mask, while ```mask_layer_name``` specifies which attention type is being masked ('enc-enc', 'enc-dec', 'dec-dec'). If your code works correctly, you should see a reduction in performance of about 1-3 BLEU.
 
-follow this arguments to see their impact.
-
-in the end, the mask_head argument, turn into head_to_mask variable on the function forward in the multihead_attention.py file.
-your task is to implement the mask part inside the forward function (1-3 lines)
-
-finally after everything is ready, execute check_all_masking_options.py that execute mask of each attention head in each transformer to see it's impact
-
+When you are done implementing and testing your code, execute [check_all_masking_options.py](check_all_masking_options.py) as follows:
 ```
 CUDA_VISIBLE_DEVICES=0 python check_all_masking_options.py data-bin/iwslt14.tokenized.de-en --path baseline/checkpoint_best.pt --batch-size 128 --beam 5 --remove-bpe --fp16
 ```
+This will run the same masking experiment for each attention head in the model, and print out result tables.
 
-validate your results and explain them.
+What do we learn from these results? Which heads can be safely removed without incurring a significant change in performance (up to 0.5 BLEU)? Which heads are more critical? Is the trend consistent with the findings in the paper?
+
 
 ## Training a sandwitch model on IWSLT'14 German to English
 
