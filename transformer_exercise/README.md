@@ -18,9 +18,13 @@ cd apex
 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" --global-option="--deprecated_fused_adam" --global-option="--xentropy" --global-option="--fast_multihead_attn" ./
 ```
 
-To install pandas:
+The all the required libraries for the exercise:
 ```bash
-pip install pandas
+pytorch
+sacrebleu
+sacremoses
+pandas
+tqdm
 ```
 
 ## Part 1: Training a Machine Translation Model
@@ -37,7 +41,7 @@ cd ../..
 
 # Preprocess/binarize the data
 TEXT=examples/translation/iwslt14.tokenized.de-en
-fairseq-preprocess --source-lang de --target-lang en \
+python preprocess.py --source-lang de --target-lang en \
     --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
     --destdir data-bin/iwslt14.tokenized.de-en \
     --workers 20
