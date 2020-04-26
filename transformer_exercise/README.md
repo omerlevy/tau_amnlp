@@ -23,11 +23,6 @@ To install pandas:
 pip install pandas
 ```
 
-Finally, to install this version of fairseq:
-```bash
-pip install --editable .
-```
-
 ## Part 1: Training a Machine Translation Model
 
 We will first train a baseline machine translation model on the [IWSLT'14 German to English dataset](http://workshop2014.iwslt.org/downloads/proceeding.pdf).
