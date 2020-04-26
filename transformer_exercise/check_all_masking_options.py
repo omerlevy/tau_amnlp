@@ -17,7 +17,7 @@ def mask_all_heads_combination():
     for i in mask_layer_combinations:
         for j in range(number_of_transformer_layers):
             for k in range(number_of_attention_heads):
-                args.model_overrides = str({"mask_layer": j, "mask_head": k, "mask_layer_name": i})
+                args.model_overrides = str({"mask_layer": j, "mask_head": k, "mask_layer_type": i})
                 scorer = main(args)
                 results_dict[i][j][k] = float(parse_bleu_scoring(scorer.result_string()))
 
