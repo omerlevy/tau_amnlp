@@ -8,8 +8,6 @@ You will implement some of the experiments described in Lesson 3 by modifying th
 
 ## Installation
 
-_TODO: Check which of these we actually need to install. I don't think we need to install fairseq, for example, because we're alreayd using a clone._
-
 * [PyTorch](http://pytorch.org/) version >= 1.4.0
 * Python version >= 3.6
 * For training new models, you'll also need an NVIDIA GPU and [NCCL](https://github.com/NVIDIA/nccl)
@@ -20,12 +18,15 @@ cd apex
 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" --global-option="--deprecated_fused_adam" --global-option="--xentropy" --global-option="--fast_multihead_attn" ./
 ```
 
-To install fairseq and pandas:
+To install pandas:
 ```bash
-pip install fairseq
 pip install pandas
 ```
 
+Finally, to install this version of fairseq:
+```bash
+pip install --editable .
+```
 
 ## Part 1: Training a Machine Translation Model
 
