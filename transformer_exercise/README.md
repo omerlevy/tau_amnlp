@@ -8,23 +8,21 @@ You will implement some of the experiments described in Lesson 3 by modifying th
 
 ## Installation
 
-* [PyTorch](http://pytorch.org/) version >= 1.4.0
+Requirements:
+* A GPU (or Colab)
 * Python version >= 3.6
-* For training new models, you'll also need an NVIDIA GPU and [NCCL](https://github.com/NVIDIA/nccl)
-* **For faster training** install NVIDIA's [apex](https://github.com/NVIDIA/apex) library:
+* [PyTorch](http://pytorch.org/) version >= 1.4.0
+
+Install all the required libraries:
+```bash
+pip install pytorch sacrebleu sacremoses pandas tqdm
+```
+
+For faster training, install NVIDIA's [apex](https://github.com/NVIDIA/apex) library:
 ```bash
 git clone https://github.com/NVIDIA/apex
 cd apex
 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" --global-option="--deprecated_fused_adam" --global-option="--xentropy" --global-option="--fast_multihead_attn" ./
-```
-
-The all the required libraries for the exercise:
-```bash
-pytorch
-sacrebleu
-sacremoses
-pandas
-tqdm
 ```
 
 ## Part 1: Training a Machine Translation Model
