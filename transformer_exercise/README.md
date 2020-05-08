@@ -16,6 +16,7 @@ Requirements:
 Install all the required libraries:
 ```bash
 pip install pytorch sacrebleu sacremoses pandas tqdm
+pip install --editable .
 ```
 
 For faster training, install NVIDIA's [apex](https://github.com/NVIDIA/apex) library:
