@@ -69,9 +69,9 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     --encoder-layers 4 --decoder-layers 4 
 ```
 
-The result should be 29.2~ bleu4
+* The result should be around 29-30 BLEU.
 
-* The specific configuration we will be using (```--arch transformer_iwslt_de_en```) has 4 encoder/decoder layers and 4 attention heads for each multi-head attention sublayer. This amounts to 16 attention heads of each type (enc-enc, enc-dec, dec-dec), which are 48 heads overall.
+* The specific configuration we will be using has 4 encoder/decoder layers and 4 attention heads for each multi-head attention sublayer. This amounts to 16 attention heads of each type (enc-enc, enc-dec, dec-dec), which are 48 heads overall. We have intentionally shrunk the configuration from the original size to allow faster training.
 
 * The ```--save-dir baseline``` argument will save the model into the "baseline" folder.
 
@@ -149,6 +149,6 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
 Once you are done implementing and testing your code, train two additional configurations of your choosing, and determine (by evaluating them with ```generate.py```, as in Part 1) whether your proposed modification improved, hurt, or did not have a significant effect on performance. Here are some ideas for possible patterns:
 * Sandwich transformers ("AAAFAFFF")
 * No feed-forward layers at all ("AAAA" or "AAAAAAAAAAAA", the latter being equivalent to the baseline in number of parameters)
-* Less attention, more feed-forward ("AFFFAFFF" or "AFFFAFFFFF", the latter being equivalent to the baseline in number of parameters)
+* Less attention, more feed-forward ("AFFAFF" or "AFFAFFF", the latter being equivalent to the baseline in number of parameters)
 
 **Good luck!**
