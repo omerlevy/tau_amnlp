@@ -9,7 +9,7 @@ import pandas as pd
 def mask_all_heads_combination():
     parser = options.get_generation_parser()
     args = options.parse_args_and_arch(parser)
-    number_of_transformer_layers = 6
+    number_of_transformer_layers = 4
     number_of_attention_heads = 4
     mask_layer_combinations = ['enc-enc', 'enc-dec', 'dec-dec']
     results_dict = {i: np.zeros((number_of_transformer_layers, number_of_attention_heads)) for i in

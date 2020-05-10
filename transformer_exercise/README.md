@@ -52,7 +52,7 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     data-bin/iwslt14.tokenized.de-en \
     --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
     --save-dir baseline \
-    --max-epoch 50 \
+    --max-epoch 20 \
     --optimizer adam --adam-betas "(0.9, 0.98)" --clip-norm 0.0 \
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
     --dropout 0.3 --weight-decay 0.0001 \
@@ -64,10 +64,14 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     --best-checkpoint-metric bleu \
     --maximize-best-checkpoint-metric \
     --eval-tokenized-bleu \
-    --fp16
+    --fp16 \
+    --encoder-embed-dim 256 --decoder-embed-dim 256 \
+    --encoder-layers 4 --decoder-layers 4 
 ```
 
-* The specific configuration we will be using (```--arch transformer_iwslt_de_en```) has 6 encoder/decoder layers and 4 attention heads for each multi-head attention sublayer. This amounts to 24 attention heads of each type (enc-enc, enc-dec, dec-dec), which are 72 heads overall.
+The result should be 29.2~ bleu4
+
+* The specific configuration we will be using (```--arch transformer_iwslt_de_en```) has 4 encoder/decoder layers and 4 attention heads for each multi-head attention sublayer. This amounts to 16 attention heads of each type (enc-enc, enc-dec, dec-dec), which are 48 heads overall.
 
 * The ```--save-dir baseline``` argument will save the model into the "baseline" folder.
 
@@ -98,9 +102,9 @@ CUDA_VISIBLE_DEVICES=0 python generate.py data-bin/iwslt14.tokenized.de-en \
     --path baseline/checkpoint_best.pt \
     --batch-size 128 --beam 5 --remove-bpe \
 	--fp16 \
-    --model-overrides "{'mask_layer': 5, 'mask_head': 3, 'mask_layer_type': 'enc-dec'}"
+    --model-overrides "{'mask_layer': 3, 'mask_head': 3, 'mask_layer_type': 'enc-dec'}"
 ```
-The arguments ```mask_layer``` and ```mask_head``` specify the layer (0-5) and head (0-3) to mask, while ```mask_layer_type``` specifies which attention type is being masked ('enc-enc', 'enc-dec', 'dec-dec'). If your code works correctly, you should see a reduction in performance of about 1-3 BLEU.
+The arguments ```mask_layer``` and ```mask_head``` specify the layer (0-3) and head (0-3) to mask, while ```mask_layer_type``` specifies which attention type is being masked ('enc-enc', 'enc-dec', 'dec-dec'). If your code works correctly, you should see a reduction in performance of about 1-3 BLEU.
 
 When you are done implementing and testing your code, execute [check_all_masking_options.py](check_all_masking_options.py) as follows:
 ```
@@ -123,7 +127,7 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     data-bin/iwslt14.tokenized.de-en \
     --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
     --save-dir sandwich \
-    --max-epoch 50 \
+    --max-epoch 20 \
     --optimizer adam --adam-betas "(0.9, 0.98)" --clip-norm 0.0 \
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
     --dropout 0.3 --weight-decay 0.0001 \
@@ -136,13 +140,15 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     --maximize-best-checkpoint-metric \
     --eval-tokenized-bleu \
     --fp16 \
-    --enc-layer-configuration 'FFFFFFAAAAAA' \
-    --dec-layer-configuration 'FFFFFFAAAAAA'
+    --encoder-embed-dim 256 --decoder-embed-dim 256 \
+    --encoder-layers 4 --decoder-layers 4 \
+    --enc-layer-configuration 'FFFFAAAA' \
+    --dec-layer-configuration 'FFFFAAAA'
 ```
 
 Once you are done implementing and testing your code, train two additional configurations of your choosing, and determine (by evaluating them with ```generate.py```, as in Part 1) whether your proposed modification improved, hurt, or did not have a significant effect on performance. Here are some ideas for possible patterns:
-* Sandwich transformers ("AAAFAFAFAFFF")
-* No feed-forward layers at all ("AAAAAA" or "AAAAAAAAAAAAAAAAAA", the latter being equivalent to the baseline in number of parameters)
+* Sandwich transformers ("AAAFAFFF")
+* No feed-forward layers at all ("AAAA" or "AAAAAAAAAAAA", the latter being equivalent to the baseline in number of parameters)
 * Less attention, more feed-forward ("AFFFAFFF" or "AFFFAFFFFF", the latter being equivalent to the baseline in number of parameters)
 
 **Good luck!**
