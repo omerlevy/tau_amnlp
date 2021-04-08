@@ -6,6 +6,15 @@ This exercise aims to dive into the details of the attention models learned in L
 We will use the task of word sense disambiguation (WSD) as an example scenario for where attention can be applied as a contextualization function.
 You will implement various forms of attention and use the performance on WSD, as well as visualization tools, to learn about how different forms of attention behave.
 
+## Instructions
+Follow the steps in the README and wsd_model.ipynb notebook.
+Before you submit download the notebook as html (File -> Download as -> HTML) and place it the attention_exercise directory.
+Zip the attention_exercise directory (without the data) and upload to moodle.
+
+Name the zip file as your IDs separated by underscores.
+For example: 123_456.zip
+
+Each group should submit only once.
 
 ## Introduction
 
@@ -96,11 +105,10 @@ What changed in the training process? How does the performance change?
 
 ## Part 4: Position-Sensitive Attention
 
-Extend your model to add *relative* positions. Specifically, implement the simplified version of (Shaw et al., 2018), as shown in the lesson.
 
-Retrain, evaluate, and analyze the model.
-How does performance change? Use the visualization tool to verify that the model prefers to attend on local neighbors.
+Extend your model to add relative positions. Specifically, implement the simplified version of (Shaw et al., 2018), as shown in the lesson.
 
+Retrain, evaluate, and analyze the model. How does performance change? Use the visualization tool to verify that the model prefers to attend on local neighbors.
 
 ## Part 5: Causal Attention
 

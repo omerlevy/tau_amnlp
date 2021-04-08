@@ -4,20 +4,16 @@ import torch.nn.init as init
 import math
 
 
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")
-
-
 class WSDModel(nn.Module):
 
-    def __init__(self, V, Y, D=300, dropout_prob=0.2):
+    def __init__(self, V, Y, D=300, dropout_prob=0.2, use_padding=False):
         super(WSDModel, self).__init__()
-        self.D = D
+        self.use_padding = use_padding
 
-        self.E_v = nn.Embedding(V, D, padding_idx=0)
-        self.E_y = nn.Embedding(Y, D, padding_idx=0)
+        self.D = D
+        self.pad_id = 0
+        self.E_v = nn.Embedding(V, D, padding_idx=self.pad_id)
+        self.E_y = nn.Embedding(Y, D, padding_idx=self.pad_id)
         init.kaiming_uniform_(self.E_v.weight[1:], a=math.sqrt(5))
         init.kaiming_uniform_(self.E_y.weight[1:], a=math.sqrt(5))
 
@@ -39,18 +35,25 @@ class WSDModel(nn.Module):
         :param Q:
             Query matrix of shape [B, k, D], where k equals 1 (in single word attention) or N (self attention)
         :param mask:
-            Boolean mask indicating padding indices in the context X.
+            Boolean mask of size [B, N] indicating padding indices in the context X.
 
         :return:
             Contextualized query and attention matrix / vector
         """
         Q_c = None
-        A = None
-
+        A = None        
+        
         # TODO Part 1: Your code here.
         # Have a look at the difference between torch.matmul() and torch.bmm().
+        raise NotImplementedError()
 
-        return Q_c, A
+        if self.use_padding:
+            # TODO part 2: Your code here.
+            raise NotImplementedError()
+
+        # TODO Part 1: continue.
+
+        return Q_c, A.squeeze()
 
     def forward(self, M_s, v_q=None):
         """
@@ -63,18 +66,19 @@ class WSDModel(nn.Module):
         :return: logits and attention tensors.
         """
 
-        X = self.dropout_layer(self.E_v(M_s))
-
+        X = self.dropout_layer(self.E_v(M_s))   # [B, N, D]
+        
         Q = None
         if v_q is not None:
             # TODO Part 1: Your Code Here.
             # Look up the gather() and expand() methods in PyTorch.
-            pass
+            raise NotImplementedError()
         else:
             # TODO Part 3: Your Code Here.
-            pass
+            raise NotImplementedError()
+            
 
-        mask = M_s.ne(0)
+        mask = M_s.ne(self.pad_id)
         Q_c, A = self.attention(X, Q, mask)
         H = self.layer_norm(Q_c + Q)
         
