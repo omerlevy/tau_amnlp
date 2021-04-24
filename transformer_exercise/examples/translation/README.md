@@ -22,7 +22,7 @@ Model | Description | Dataset | Download
 
 We require a few additional Python dependencies for preprocessing:
 ```bash
-pip install sacremoses subword_nmt
+pip install fastBPE sacremoses subword_nmt
 ```
 
 Interactive translation via PyTorch Hub:
@@ -33,7 +33,9 @@ import torch
 torch.hub.list('pytorch/fairseq')  # [..., 'transformer.wmt16.en-de', ... ]
 
 # Load a transformer trained on WMT'16 En-De
-en2de = torch.hub.load('pytorch/fairseq', 'transformer.wmt16.en-de', tokenizer='moses', bpe='subword_nmt')
+# Note: WMT'19 models use fastBPE instead of subword_nmt, see instructions below
+en2de = torch.hub.load('pytorch/fairseq', 'transformer.wmt16.en-de',
+                       tokenizer='moses', bpe='subword_nmt')
 en2de.eval()  # disable dropout
 
 # The underlying model is available under the *models* attribute
@@ -63,6 +65,15 @@ zh2en = TransformerModel.from_pretrained(
 )
 zh2en.translate('你好 世界')
 # 'Hello World'
+```
+
+If you are using a `transformer.wmt19` models, you will need to set the `bpe`
+argument to `'fastbpe'` and (optionally) load the 4-model ensemble:
+```python
+en2de = torch.hub.load('pytorch/fairseq', 'transformer.wmt19.en-de',
+                       checkpoint_file='model1.pt:model2.pt:model3.pt:model4.pt',
+                       tokenizer='moses', bpe='fastbpe')
+en2de.eval()  # disable dropout
 ```
 
 ## Example usage (CLI tools)
@@ -164,9 +175,11 @@ mkdir -p checkpoints/fconv_wmt_en_de
 fairseq-train \
     data-bin/wmt17_en_de \
     --arch fconv_wmt_en_de \
-    --lr 0.5 --clip-norm 0.1 --dropout 0.2 --max-tokens 4000 \
+    --dropout 0.2 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
-    --lr-scheduler fixed --force-anneal 50 \
+    --optimizer nag --clip-norm 0.1 \
+    --lr 0.5 --lr-scheduler fixed --force-anneal 50 \
+    --max-tokens 4000 \
     --save-dir checkpoints/fconv_wmt_en_de
 
 # Evaluate
@@ -194,10 +207,12 @@ fairseq-preprocess \
 mkdir -p checkpoints/fconv_wmt_en_fr
 fairseq-train \
     data-bin/wmt14_en_fr \
-    --lr 0.5 --clip-norm 0.1 --dropout 0.1 --max-tokens 3000 \
-    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
-    --lr-scheduler fixed --force-anneal 50 \
     --arch fconv_wmt_en_fr \
+    --dropout 0.1 \
+    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+    --optimizer nag --clip-norm 0.1 \
+    --lr 0.5 --lr-scheduler fixed --force-anneal 50 \
+    --max-tokens 3000 \
     --save-dir checkpoints/fconv_wmt_en_fr
 
 # Evaluate
@@ -214,7 +229,7 @@ train a multilingual `{de,fr}-en` translation model using the IWSLT'17 datasets.
 
 Note that we use slightly different preprocessing here than for the IWSLT'14
 En-De data above. In particular we learn a joint BPE code for all three
-languages and use interactive.py and sacrebleu for scoring the test set.
+languages and use fairseq-interactive and sacrebleu for scoring the test set.
 
 ```bash
 # First install sacrebleu and sentencepiece
@@ -248,12 +263,12 @@ fairseq-preprocess --source-lang fr --target-lang en \
 mkdir -p checkpoints/multilingual_transformer
 CUDA_VISIBLE_DEVICES=0 fairseq-train data-bin/iwslt17.de_fr.en.bpe16k/ \
     --max-epoch 50 \
-    --ddp-backend=no_c10d \
+    --ddp-backend=legacy_ddp \
     --task multilingual_translation --lang-pairs de-en,fr-en \
     --arch multilingual_transformer_iwslt_de_en \
     --share-decoders --share-decoder-input-output-embed \
     --optimizer adam --adam-betas '(0.9, 0.98)' \
-    --lr 0.0005 --lr-scheduler inverse_sqrt --min-lr '1e-09' \
+    --lr 0.0005 --lr-scheduler inverse_sqrt \
     --warmup-updates 4000 --warmup-init-lr '1e-07' \
     --label-smoothing 0.1 --criterion label_smoothed_cross_entropy \
     --dropout 0.3 --weight-decay 0.0001 \

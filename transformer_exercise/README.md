@@ -1,10 +1,28 @@
 # Modifying the Transformer Architecture
 
-**Huge thanks to Tomer Amit for coding, testing, and organizing this exercise!**
-
 This exercise aims to familiarize you with a real-world implementation of the transformer.
 We will use the popular **fairseq** platform, which is designed for experimenting with machine translation, language modeling, pre-training, and other sequence processing tasks.
-You will implement some of the experiments described in Lesson 3 by modifying the transformer's code.
+You will implement some of the experiments described in class by modifying the transformer's code.
+
+## Submission:
+
+Please submit a zip file containing the following .py files and logs that you will get from your runs:
+* baseline_train.log
+* baseline_gen.log
+* baseline_mask.log
+* check_all_masking_options.log
+* sandwich_train.log
+* sandwich_gen.log
+* transformer_exercise/fairseq/models/transformer.py
+* transformer_exercise/fairseq/modules/transformer_layer.py
+* transformer_exercise/fairseq/modules/multihead_attention.py
+* any additional file that you choose to change 
+* README.txt with your names and IDs
+
+Only one student from each group should submit.
+
+Name the zip file with your IDs separated by underscores.
+For example: 123_456.zip
 
 ## Installation
 
@@ -13,17 +31,11 @@ Requirements:
 * Python version >= 3.6
 * [PyTorch](http://pytorch.org/) version >= 1.4.0
 
-Install all the required libraries:
+Install the required libraries:
 ```bash
-pip install pytorch sacrebleu sacremoses pandas tqdm
+cd path/to/tau_amnlp/transformer_exercise
+pip install torch sacrebleu sacremoses pandas tqdm
 pip install --editable .
-```
-
-For faster training, install NVIDIA's [apex](https://github.com/NVIDIA/apex) library:
-```bash
-git clone https://github.com/NVIDIA/apex
-cd apex
-pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" --global-option="--deprecated_fused_adam" --global-option="--xentropy" --global-option="--fast_multihead_attn" ./
 ```
 
 ## Part 1: Training a Machine Translation Model
@@ -40,115 +52,123 @@ cd ../..
 
 # Preprocess/binarize the data
 TEXT=examples/translation/iwslt14.tokenized.de-en
-python preprocess.py --source-lang de --target-lang en \
+python fairseq_cli/preprocess.py --source-lang de --target-lang en \
     --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
     --destdir data-bin/iwslt14.tokenized.de-en \
     --workers 20
 ```
 
 **Step 2:** Train an encoder-decoder transformer using this data.
-```
-CUDA_VISIBLE_DEVICES=0 python train.py \
+```bash
+python train.py \
     data-bin/iwslt14.tokenized.de-en \
     --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
     --save-dir baseline \
-    --max-epoch 20 \
+    --max-epoch 50 \
     --optimizer adam --adam-betas "(0.9, 0.98)" --clip-norm 0.0 \
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
     --max-tokens 12288 \
     --eval-bleu \
+    --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
     --eval-bleu-detok moses \
-    --eval-bleu-remove-bpe --eval-bleu-print-samples \
-    --best-checkpoint-metric bleu \
-    --maximize-best-checkpoint-metric \
-    --eval-tokenized-bleu \
-    --fp16 \
+    --eval-bleu-remove-bpe \
+    --eval-bleu-print-samples \
+    --best-checkpoint-metric bleu --maximize-best-checkpoint-metric \
     --encoder-embed-dim 256 --decoder-embed-dim 256 \
-    --encoder-layers 4 --decoder-layers 4 
+    --encoder-layers 4 --decoder-layers 4 \
+    --decoder-attention-heads 4 --encoder-attention-heads 4 \
+    --no-epoch-checkpoints | tee baseline_train.log
 ```
 
-* The result should be around 29-30 BLEU.
-
-* The specific configuration we will be using has 4 encoder/decoder layers and 4 attention heads for each multi-head attention sublayer. This amounts to 16 attention heads of each type (enc-enc, enc-dec, dec-dec), which are 48 heads overall. We have intentionally shrunk the configuration from the original size to allow faster training.
+* The specific configuration we will be using has 4 encoder/decoder layers and 4 attention heads for each multi-head attention sublayer. This amounts to 16 attention heads of each type (enc-enc, enc-dec, dec-dec), which are 48 heads overall. We use a smaller architecture then the default configuration to allow faster training.
 
 * The ```--save-dir baseline``` argument will save the model into the "baseline" folder.
 
 * If your GPU runs out of memory, you can reduce ```--max-tokens```.
 
-* ```--fp16``` Makes training faster by using mixed floating-point precision. It has very little effect on the performance, so if your GPU is a bit older and does not support it, do not worry.
-
 **Step 3:** Evaluate the trained model.
-```
-CUDA_VISIBLE_DEVICES=0 python generate.py data-bin/iwslt14.tokenized.de-en --path baseline/checkpoint_best.pt --batch-size 128 --beam 5 --remove-bpe --fp16
+```bash
+python fairseq_cli/generate.py data-bin/iwslt14.tokenized.de-en \
+--path baseline/checkpoint_best.pt --gen-subset valid \
+--batch-size 128 --beam 5 --remove-bpe | tee baseline_gen.log
 ```
 
-This step runs beam search (Lesson 5) and generates discrete strings. The system's outputs are compared to the reference strings in the test set using BLEU. If you have trained the model for long enough (50 epochs), you should be getting a BLEU score of about 34 to 35.
-
+This step runs beam search and generates discrete strings. The system's outputs are compared to the reference strings in the test set using BLEU. You should be getting a BLEU score of about 33 to 34.
 
 ## Part 2: Masking Attention Heads
 
 We would like to replicate one of the experiments in [Are Sixteen Heads Really Better than One?](https://arxiv.org/abs/1905.10650), in which we mask a single attention head each time and test the model's performance.
-To that end, we have added an additional command-line argument to ```generate.py``` that specifies which attention head needs to be masked (see below). Your task is to mask the correct head given the argument.
+To that end, we have added three command-line arguments to ```generate.py``` that specifies which attention head needs to be masked (see below). Your task is to mask the correct head given the argument.
 
-Specifically, you should read the command line arguments (```args.mask_layer```, ```args.mask_head```, ```args.mask_layer_type```) in the transformer's constructor and pass a masking flag to the relevant multi-head attention sublayer. The transformer's implementation can be found in [fairseq/models/transformer.py](fairseq/models/transformer.py). Note that there are two classes (encoder and decoder), and both need to be modified.
+Specifically, you should read the command line arguments (```args.mask_layer```, ```args.mask_head```, ```args.mask_layer_type```) in the TransformerModel's constructor and pass a masking flag to the relevant multi-head attention sublayer (only do so when the ```args.mask_layer_type``` equals to one of ```"enc-dec", "enc-enc" or "dec-dec"```  ). The transformer's implementation can be found in [fairseq/models/transformer.py](fairseq/models/transformer.py).
 
-You will then need to implement the actual masking in [fairseq/modules/multihead_attention.py](fairseq/modules/multihead_attention.py).
+You will then need to implement the actual masking in [fairseq/modules/multihead_attention.py](fairseq/modules/multihead_attention.py), you might find this [blog post](http://jalammar.github.io/illustrated-transformer/) helpful.
 
-After making your changes, you can debug them by running the following script:
-```
-CUDA_VISIBLE_DEVICES=0 python generate.py data-bin/iwslt14.tokenized.de-en \
-    --path baseline/checkpoint_best.pt \
+The arguments ```mask_layer``` and ```mask_head``` specify the layer (0-3) and head (0-3) to mask, while ```mask_layer_type``` specifies which attention type is being masked ('enc-enc', 'enc-dec', 'dec-dec').
+
+Run the following command to generate while masking the first head of the fourth decoder layer's enc-dec attention. You can also use this command without the `tee | baseline_mask.log` part to debug your code while working on it.
+```bash
+python fairseq_cli/generate.py data-bin/iwslt14.tokenized.de-en \
+    --path baseline/checkpoint_best.pt --gen-subset valid \
     --batch-size 128 --beam 5 --remove-bpe \
-	--fp16 \
-    --model-overrides "{'mask_layer': 3, 'mask_head': 3, 'mask_layer_type': 'enc-dec'}"
+    --model-overrides "{'mask_layer': 3, 'mask_head': 0, 'mask_layer_type': 'enc-dec'}" | tee baseline_mask.log
 ```
-The arguments ```mask_layer``` and ```mask_head``` specify the layer (0-3) and head (0-3) to mask, while ```mask_layer_type``` specifies which attention type is being masked ('enc-enc', 'enc-dec', 'dec-dec'). If your code works correctly, you should see a reduction in performance of about 1-3 BLEU.
+If your code works correctly, you should see a reduction in performance of about 1-3 BLEU.
 
-When you are done implementing and testing your code, execute [check_all_masking_options.py](check_all_masking_options.py) as follows:
+When you are done, execute [check_all_masking_options.py](check_all_masking_options.py) as follows:
+```bash
+python check_all_masking_options.py data-bin/iwslt14.tokenized.de-en \
+--path baseline/checkpoint_best.pt --gen-subset valid \
+--batch-size 128 --beam 5 --remove-bpe --quiet | tee check_all_masking_options.log
 ```
-CUDA_VISIBLE_DEVICES=0 python check_all_masking_options.py data-bin/iwslt14.tokenized.de-en --path baseline/checkpoint_best.pt --batch-size 128 --beam 5 --remove-bpe --fp16
-```
-This will run the same masking experiment for each attention head in the model, and print out result tables.
+This will run the same masking experiment for each attention head in the model, and print out a result table.
 
-What do we learn from these results? Which heads can be safely removed without incurring a significant change in performance (up to 0.5 BLEU)? Which heads are more critical? Is the trend consistent with the findings in the paper?
-
+Take a look at the results and answer yourselves: What do we learn from these results? Which heads can be safely removed without incurring a significant change in performance (up to 0.5 BLEU)? Which heads are more critical? Is the trend consistent with the findings in the paper?
 
 ## Part 3: Reordering Transformer Sublayers
 
-We would like to replicate the idea in [Improving Transformer Models by Reordering their Sublayers](https://arxiv.org/abs/1911.03864), where new transformer configurations can be created by chaining multi-head attention and feed-forward sublayers in arbitrary patterns. Your task is to implement this ability in fairseq.
+We would like to replicate the idea in [Improving Transformer Models by Reordering their Sublayers](https://arxiv.org/abs/1911.03864), where new transformer configurations can be created by chaining multi-head attention and feed-forward sublayers in arbitrary patterns. Your task is to implement this ability for the encoder in fairseq.
 
-We have added the ```enc-layer-configuration``` and ```dec-layer-configuration``` arguments to fairseq. These receive a string made of "A"s and "F"s, symbolizing multi-head attention feed-forward sublayers, respectively. For example, the original transformer architecture is "AFAFAFAFAFAF". Note that in the decoder, we define "A" as (causal) self-attention followed by cross attention and treat both sublayers as a single atomic unit.
+We have added the ```enc-layer-configuration```  argument to fairseq. It receives a string made of "A"s and "F"s, symbolizing multi-head attention feed-forward sublayers, respectively. For example, a regular encoder with 4 layers has the following architecture "AFAFAFAF".
 
-To test your implementation, you will have to retrain the transformer. Here is an example of one architecture in which all the feed-forward layers are applied before the multi-head attention sublayers:
-```
-CUDA_VISIBLE_DEVICES=0 python train.py \
+Your implementation should be able to support any 8 (2 * number of encoder layers) letter sequence of "A"s and "F"s.
+
+Train a sandwich transformer with the following command:
+
+```bash
+python train.py \
     data-bin/iwslt14.tokenized.de-en \
     --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
     --save-dir sandwich \
-    --max-epoch 20 \
+    --max-epoch 50 \
     --optimizer adam --adam-betas "(0.9, 0.98)" --clip-norm 0.0 \
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
     --max-tokens 12288 \
     --eval-bleu \
+    --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
     --eval-bleu-detok moses \
-    --eval-bleu-remove-bpe --eval-bleu-print-samples \
-    --best-checkpoint-metric bleu \
-    --maximize-best-checkpoint-metric \
-    --eval-tokenized-bleu \
-    --fp16 \
+    --eval-bleu-remove-bpe \
+    --eval-bleu-print-samples \
+    --best-checkpoint-metric bleu --maximize-best-checkpoint-metric \
     --encoder-embed-dim 256 --decoder-embed-dim 256 \
     --encoder-layers 4 --decoder-layers 4 \
-    --enc-layer-configuration 'FFFFAAAA' \
-    --dec-layer-configuration 'FFFFAAAA'
+    --decoder-attention-heads 4 --encoder-attention-heads 4 \
+    --no-epoch-checkpoints \
+    --enc-layer-configuration AAAAAFFF | tee sandwich_train.log
 ```
+Evaluate your new model with:
 
-Once you are done implementing and testing your code, train two additional configurations of your choosing, and determine (by evaluating them with ```generate.py```, as in Part 1) whether your proposed modification improved, hurt, or did not have a significant effect on performance. Here are some ideas for possible patterns:
-* Sandwich transformers ("AAAFAFFF")
-* No feed-forward layers at all ("AAAA" or "AAAAAAAAAAAA", the latter being equivalent to the baseline in number of parameters)
-* Less attention, more feed-forward ("AFFAFF" or "AFFAFFF", the latter being equivalent to the baseline in number of parameters)
+```bash
+python fairseq_cli/generate.py data-bin/iwslt14.tokenized.de-en \
+--path sandwich_baseline/checkpoint_best.pt --gen-subset valid \
+--batch-size 128 --beam 5 --remove-bpe | tee sandwich_baseline_gen.log
+```
+Answer yourselves: Did the new architecture improve, hurt, or did not have a significant effect on performance? What about the number of parameters or the training speed? You are welcome to explore with different configurations, or implement (do not submit) this ability for the decoder also if you want.
+
+You might want to test your implementation by training and evaluating a model with the default pattern of multi-head attention and feed-forward components and verify that you get the same results as those you got in part 1 (no need to submit this).
 
 **Good luck!**

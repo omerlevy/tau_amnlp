@@ -3,9 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import numpy as np
+import logging
 
-from . import BaseWrapperDataset, plasma_utils
+import numpy as np
+from fairseq.data import BaseWrapperDataset, plasma_utils
+
+
+logger = logging.getLogger(__name__)
 
 
 class ResamplingDataset(BaseWrapperDataset):
@@ -102,7 +106,12 @@ class ResamplingDataset(BaseWrapperDataset):
     def prefetch(self, indices):
         self.dataset.prefetch(self._cur_indices.array[indices])
 
+    @property
+    def can_reuse_epoch_itr_across_epochs(self):
+        return False
+
     def set_epoch(self, epoch):
+        logger.debug("ResamplingDataset.set_epoch: {}".format(epoch))
         super().set_epoch(epoch)
 
         if epoch == self._cur_epoch:

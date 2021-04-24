@@ -5,33 +5,33 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Helper script to pre-compute embeddings for a wav2letter++ dataset
+Helper script to pre-compute embeddings for a flashlight (previously called wav2letter++) dataset
 """
 
+import argparse
+import glob
+import os
+import os.path as osp
 import pprint
-import glob, os, argparse
 
+import soundfile as sf
 import torch
+import fairseq
 from torch import nn
+from torch.utils.data import DataLoader
+
 
 try:
     import tqdm
 except:
     print("Install tqdm to use --log-format=tqdm")
 
-from fairseq.models.wav2vec import Wav2VecModel
-
-import tqdm
-import soundfile as sf
-from torch.utils.data import DataLoader
-import os.path as osp
-
 
 class FilesDataset:
     def __init__(self, files, labels):
         self.files = files
         if labels and osp.exists(labels):
-            with open(labels, 'r') as lbl_f:
+            with open(labels, "r") as lbl_f:
                 self.labels = [line.rstrip() for line in lbl_f]
         else:
             self.labels = labels
@@ -50,7 +50,7 @@ class FilesDataset:
         if self.labels:
             if isinstance(self.labels, str):
                 lbl_file = osp.splitext(fname)[0] + "." + self.labels
-                with open(lbl_file, 'r') as lblf:
+                with open(lbl_file, "r") as lblf:
                     lbls = lblf.readline()
                     assert lbls is not None
             else:
@@ -116,24 +116,24 @@ class DatasetWriter:
             assert len(files) > 0
 
             if self.args.shard is not None:
-                files = files[self.args.shard::self.args.num_shards]
+                files = files[self.args.shard :: self.args.num_shards]
 
             lbls = []
-            with open(self.data_file(split), 'w') as srcf:
+            with open(self.data_file(split), "w") as srcf:
                 for line, lbl in self.iterate(files):
                     print(line, file=srcf)
                     if self.args.labels:
-                        lbls.append(lbl + '\n')
+                        lbls.append(lbl + "\n")
 
             if self.args.labels:
                 assert all(a is not None for a in lbls)
-                with open(self.lbl_file(split), 'w') as lblf:
+                with open(self.lbl_file(split), "w") as lblf:
                     lblf.writelines(lbls)
 
     def iterate(self, files):
 
         data = self.load_data(files)
-        for samples in tqdm.tqdm(data, total=len(files)//32):
+        for samples in tqdm.tqdm(data, total=len(files) // 32):
 
             for wav, lbl in samples:
                 x = wav.unsqueeze(0).float().cuda()
@@ -161,7 +161,6 @@ class DatasetWriter:
 
                 idx = torch.cat(result, dim=0)
                 yield " ".join("-".join(map(str, a.tolist())) for a in idx), lbl
-
 
     def lbl_file(self, name):
         shard_part = "" if self.args.shard is None else f".{self.args.shard}"
@@ -211,13 +210,11 @@ class DatasetWriter:
         return loader
 
     def load_model(self):
-        cp = torch.load(self.checkpoint, map_location=lambda x, _: x)
+        model, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task([self.checkpoint])
+        model = model[0]
 
-        model = Wav2VecModel.build_model(cp["args"], None)
+        self.quantize_location = getattr(cfg.model, "vq", "encoder")
 
-        self.quantize_location = getattr(cp["args"], "vq", "encoder")
-
-        model.load_state_dict(cp["model"])
         model.eval().float()
         model.cuda()
 
@@ -230,7 +227,9 @@ class DatasetWriter:
 
         self.process_splits()
 
-        if hasattr(self.model.feature_extractor, "vars") and (self.args.shard is None or self.args.shard == 0):
+        if hasattr(self.model.feature_extractor, "vars") and (
+            self.args.shard is None or self.args.shard == 0
+        ):
             vars = (
                 self.model.feature_extractor.vars.view(
                     self.model.feature_extractor.banks,

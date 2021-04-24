@@ -103,10 +103,10 @@ NUM_CLASSES=2           # Number of classes for the classification task.
 MAX_SENTENCES=8         # Batch size.
 ROBERTA_PATH=/path/to/roberta.large/model.pt
 
-CUDA_VISIBLE_DEVICES=0 python train.py IMDB-bin/ \
+CUDA_VISIBLE_DEVICES=0 fairseq-train IMDB-bin/ \
     --restore-file $ROBERTA_PATH \
     --max-positions 512 \
-    --max-sentences $MAX_SENTENCES \
+    --batch-size $MAX_SENTENCES \
     --max-tokens 4400 \
     --task sentence_prediction \
     --reset-optimizer --reset-dataloader --reset-meters \
@@ -123,16 +123,16 @@ CUDA_VISIBLE_DEVICES=0 python train.py IMDB-bin/ \
     --fp16 --fp16-init-scale 4 --threshold-loss-scale 1 --fp16-scale-window 128 \
     --max-epoch 10 \
     --best-checkpoint-metric accuracy --maximize-best-checkpoint-metric \
-    --truncate-sequence \
+    --shorten-method "truncate" \
     --find-unused-parameters \
     --update-freq 4
 ```
 
 The above command will finetune RoBERTa-large with an effective batch-size of 32
-sentences (`--max-sentences=8 --update-freq=4`). The expected
+sentences (`--batch-size=8 --update-freq=4`). The expected
 `best-validation-accuracy` after 10 epochs is ~96.5%.
 
-If you run out of GPU memory, try decreasing `--max-sentences` and increase
+If you run out of GPU memory, try decreasing `--batch-size` and increase
 `--update-freq` to compensate.
 
 

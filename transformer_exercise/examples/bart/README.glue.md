@@ -24,9 +24,9 @@ NUM_CLASSES=2
 MAX_SENTENCES=16        # Batch size.
 BART_PATH=/path/to/bart/model.pt
 
-CUDA_VISIBLE_DEVICES=0,1 python train.py RTE-bin/ \
+CUDA_VISIBLE_DEVICES=0,1 fairseq-train RTE-bin/ \
     --restore-file $BART_PATH \
-    --max-sentences $MAX_SENTENCES \
+    --batch-size $MAX_SENTENCES \
     --max-tokens 4400 \
     --task sentence_prediction \
     --add-prev-output-tokens \
@@ -63,9 +63,9 @@ For `STS-B` additionally add `--regression-target --best-checkpoint-metric loss`
 
 **Note:**
 
-a) `--total-num-updates` is used by `--polynomial_decay` scheduler and is calculated for `--max-epoch=10` and `--max-sentences=32/64/128` depending on the task.
+a) `--total-num-updates` is used by `--polynomial_decay` scheduler and is calculated for `--max-epoch=10` and `--batch-size=32/64/128` depending on the task.
 
-b) Above cmd-args and hyperparams are tested on Nvidia `V100` GPU with `32gb` of memory for each task. Depending on the GPU memory resources available to you, you can use increase `--update-freq` and reduce `--max-sentences`.
+b) Above cmd-args and hyperparams are tested on Nvidia `V100` GPU with `32gb` of memory for each task. Depending on the GPU memory resources available to you, you can use increase `--update-freq` and reduce `--batch-size`.
 
 ### Inference on GLUE task
 After training the model as mentioned in previous step, you can perform inference with checkpoints in `checkpoints/` directory using following python code snippet:

@@ -29,7 +29,7 @@ fairseq-train "data/bin_${VOCAB}" --task translation --user-dir examples/byte_le
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
     --log-format 'simple' --log-interval 100 --save-dir "checkpoints/${VOCAB}" \
-    --max-sentences 100 --max-update 100000 --update-freq 2
+    --batch-size 100 --max-update 100000 --update-freq 2
 ```
 
 ## Generation
@@ -38,10 +38,10 @@ fairseq-train "data/bin_${VOCAB}" --task translation --user-dir examples/byte_le
 # BPE=--bpe bytes
 # BPE=--bpe characters
 BPE=--bpe byte_bpe --sentencepiece-model-path data/spm_bbpe2048.model
-# BPE=--bpe sentencepiece --sentencepiece-vocab data/spm_bpe2048.model
+# BPE=--bpe sentencepiece --sentencepiece-model data/spm_bpe2048.model
 # BPE=--bpe byte_bpe --sentencepiece-model-path data/spm_bbpe4096.model
-# BPE=--bpe sentencepiece --sentencepiece-vocab data/spm_bpe4096.model
-# BPE=--bpe sentencepiece --sentencepiece-vocab data/spm_bpe16384.model
+# BPE=--bpe sentencepiece --sentencepiece-model data/spm_bpe4096.model
+# BPE=--bpe sentencepiece --sentencepiece-model data/spm_bpe16384.model
 ```
 
 ```bash
