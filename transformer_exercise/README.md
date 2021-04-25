@@ -41,7 +41,7 @@ pip install --editable .
 ## Part 1: Training a Machine Translation Model
 
 We will first train a baseline machine translation model on the [IWSLT'14 German to English dataset](http://workshop2014.iwslt.org/downloads/proceeding.pdf).
-This dataset is made from subtitles of TED talks in many different languages. Specifically, we recommend using the popular German to English subset, but you may also experiment with Hebrew/Arabic/Russian/etc by changing the data downloading script.
+The IWSLT'14 dataset consists subtitles of TED talks translated to many languages. 
 
 **Step 1:** Download and preprocess the data.
 ```bash
