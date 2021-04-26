@@ -6,7 +6,7 @@ You will implement some of the experiments described in class by modifying the t
 
 ## Submission:
 
-Please submit a zip file containing the following .py files and logs that you will get from your runs:
+Please submit a zip file containing the following files and logs that you will get from your runs:
 * baseline_train.log
 * baseline_gen.log
 * baseline_mask.log
@@ -17,7 +17,9 @@ Please submit a zip file containing the following .py files and logs that you wi
 * transformer_exercise/fairseq/modules/transformer_layer.py
 * transformer_exercise/fairseq/modules/multihead_attention.py
 * any additional file that you choose to change 
-* README.txt with your names and IDs
+* summary.md
+
+Please do not forget to fill and submit the summary.md file!
 
 Only one student from each group should submit.
 
