@@ -7,12 +7,11 @@ We will use the task of word sense disambiguation (WSD) as an example scenario f
 You will implement various forms of attention and use the performance on WSD, as well as visualization tools, to learn about how different forms of attention behave.
 
 ## Instructions
-Follow the steps in the README and wsd_model.ipynb notebook.
-Before you submit download the notebook as html (File -> Download as -> HTML) and place it the attention_exercise directory.
-Zip the attention_exercise directory (without the data) and upload to moodle.
-
-Name the zip file as your IDs separated by underscores.
-For example: 123_456.zip
+* Follow the steps in the README and wsd_model.ipynb notebook.
+* Implement your solution, so you could eventually run every cell of the notebook sequentially in a single run (add parameters to the WSDModel class when needed).
+* Once you are done, run the entire notebook, download it as html (File -> Download as -> HTML) and place it the attention_exercise directory.
+* Zip the attention_exercise directory (without the data).
+* Name the zip file as your IDs separated by underscores, for example: 123_456.zip, and upload it to moodle.
 
 Each group should submit only once.
 
