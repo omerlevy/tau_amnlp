@@ -9,6 +9,7 @@ You will implement various forms of attention and use the performance on WSD, as
 ## Instructions
 * Follow the steps in the README and wsd_model.ipynb notebook.
 * Implement your solution, so you could eventually run every cell of the notebook sequentially in a single run (add parameters to the WSDModel class when needed).
+* Do not to use loops (for/while), vectorize your code.
 * Once you are done, run the entire notebook, download it as html (File -> Download as -> HTML) and place it the attention_exercise directory.
 * Zip the attention_exercise directory (without the data).
 * Name the zip file as your IDs separated by underscores, for example: 123_456.zip, and upload it to moodle.
