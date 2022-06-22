@@ -1,7 +1,7 @@
 ipykernel
 matplotlib
 
-numpy==1.18.2
+numpy==1.22.0
 pandas==1.0.3
 
 torch==1.4.0
